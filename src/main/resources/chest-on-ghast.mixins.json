@@ -1,0 +1,14 @@
+{
+	"required": true,
+	"package": "me.noramibu.mixin",
+	"compatibilityLevel": "JAVA_21",
+	"mixins": [
+		"HappyGhastEntityMixin"
+	],
+	"injectors": {
+		"defaultRequire": 1
+	},
+	"overwrites": {
+		"requireAnnotations": true
+	}
+}
