@@ -20,17 +20,17 @@ public abstract class HappyGhastEntityMixin {
     private void interactMob(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         ItemStack itemStack = player.getStackInHand(hand);
-
+        // Only spawn if the player is holding a CHEST_MINECART
         if (itemStack.isOf(Items.CHEST_MINECART) && ghast.getPassengerList().size() < 3 && !ghast.getEquippedStack(EquipmentSlot.BODY).isEmpty()) {
             if (!ghast.getWorld().isClient) {
                 ChestMinecartEntity chestMinecart = new ChestMinecartEntity(EntityType.CHEST_MINECART, ghast.getWorld());
+                chestMinecart.refreshPositionAndAngles(ghast.getX(), ghast.getY(), ghast.getZ(), ghast.getYaw(), ghast.getPitch());
                 ghast.getWorld().spawnEntity(chestMinecart);
                 chestMinecart.startRiding(ghast);
-                if (!player.getAbilities().creativeMode) {
+                if (!player.getAbilities().creativeMode)
                     itemStack.decrement(1);
-                }
             }
             cir.setReturnValue(ActionResult.SUCCESS);
         }
     }
-} 
+}
