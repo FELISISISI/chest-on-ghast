@@ -24,14 +24,14 @@ public abstract class HappyGhastEntityMixin {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         ItemStack itemStack = player.getStackInHand(hand);
         if (itemStack.isOf(Items.CHEST_MINECART) && ghast.getPassengerList().size() < 3 && !ghast.getEquippedStack(EquipmentSlot.BODY).isEmpty()) {
-            if (!ghast.getWorld().isClient) {
-                ChestMinecartEntity chestMinecart = new ChestMinecartEntity(EntityType.CHEST_MINECART, ghast.getWorld());
+            if (!ghast.getEntityWorld().isClient()) {
+                ChestMinecartEntity chestMinecart = new ChestMinecartEntity(EntityType.CHEST_MINECART, ghast.getEntityWorld());
                 chestMinecart.refreshPositionAndAngles(ghast.getX(), ghast.getY(), ghast.getZ(), ghast.getYaw(), ghast.getPitch());
-                ghast.getWorld().spawnEntity(chestMinecart);
+                ghast.getEntityWorld().spawnEntity(chestMinecart);
                 chestMinecart.startRiding(ghast);
                 if (!player.getAbilities().creativeMode)
                     itemStack.decrement(1);
-                if (ghast.getWorld() instanceof ServerWorld serverWorld) {
+                if (ghast.getEntityWorld() instanceof ServerWorld serverWorld) {
                     Scoreboard scoreboard = serverWorld.getScoreboard();
                     Team team = scoreboard.getTeam("NoCollision");
                     if (team == null) {
