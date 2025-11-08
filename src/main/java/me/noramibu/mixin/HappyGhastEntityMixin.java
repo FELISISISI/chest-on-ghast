@@ -20,7 +20,7 @@ import net.minecraft.entity.EquipmentSlot;
 
 /**
  * Mixin for HappyGhastEntity to add custom interaction behaviors
- * This mixin handles both chest minecart placement and greeting interactions
+ * This mixin handles chest minecart placement on the ghast
  */
 @Mixin(HappyGhastEntity.class)
 public abstract class HappyGhastEntityMixin {
@@ -74,15 +74,6 @@ public abstract class HappyGhastEntityMixin {
                     }
                 }
             }
-            cir.setReturnValue(ActionResult.SUCCESS);
-        } else {
-            // If not using a chest minecart, make the happy ghast greet the player
-            // Only execute on server side to prevent duplicate messages
-            if (!ghast.getEntityWorld().isClient()) {
-                // Send a greeting message to the player
-                player.sendMessage(Text.literal("你好！"), false);
-            }
-            // Return success to indicate the interaction was handled
             cir.setReturnValue(ActionResult.SUCCESS);
         }
     }
