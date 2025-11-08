@@ -1,5 +1,6 @@
 package me.noramibu.mixin;
 
+import me.noramibu.accessor.HappyGhastDataAccessor;
 import me.noramibu.data.HappyGhastData;
 import me.noramibu.level.LevelConfig;
 import me.noramibu.network.OpenGhastGuiPayload;
