@@ -45,39 +45,27 @@ public class HappyGhastScreen extends Screen {
         // 调用父类的render方法，处理默认的背景和组件渲染
         super.render(context, mouseX, mouseY, delta);
         
-        // 绘制半透明暗淡背景
-        context.fill(0, 0, this.width, this.height, 0xC0101010);
+        // === 调试测试：在屏幕中央绘制明显的白色文字 ===
+        context.drawText(this.textRenderer, "TEST TEXT 测试文字", this.width / 2 - 50, this.height / 2 - 50, 0xFFFFFF, true);
+        context.drawText(this.textRenderer, "Level: " + level, this.width / 2 - 50, this.height / 2 - 30, 0xFFFFFF, true);
+        context.drawText(this.textRenderer, "Health: " + currentHealth, this.width / 2 - 50, this.height / 2 - 10, 0xFFFFFF, true);
         
-        // GUI背景面板
-        context.fill(guiX, guiY, guiX + GUI_WIDTH, guiY + GUI_HEIGHT, 0xFFC6C6C6);
-        
-        // 绘制3D边框效果（模拟旧版Minecraft GUI风格）
-        // 深色边框（左上）
-        context.fill(guiX, guiY, guiX + GUI_WIDTH, guiY + 1, 0xFF373737);
-        context.fill(guiX, guiY + 1, guiX + 1, guiY + GUI_HEIGHT, 0xFF373737);
-        // 亮色边框（右下）
-        context.fill(guiX, guiY + GUI_HEIGHT - 1, guiX + GUI_WIDTH, guiY + GUI_HEIGHT, 0xFFFFFFFF);
-        context.fill(guiX + GUI_WIDTH - 1, guiY, guiX + GUI_WIDTH, guiY + GUI_HEIGHT, 0xFFFFFFFF);
-        // 内部阴影
-        context.fill(guiX + 1, guiY + 1, guiX + GUI_WIDTH - 1, guiY + 2, 0xFF8B8B8B);
-        context.fill(guiX + 1, guiY + 1, guiX + 2, guiY + GUI_HEIGHT - 1, 0xFF8B8B8B);
-        
-        // === 渲染所有文字和进度条 ===
+        // === 原来的文字渲染代码（也保留） ===
         int x = guiX + 10;
         int y = guiY + 8;
         
-        // 标题
+        // 标题 - 改为白色更明显
         Text title = Text.translatable("gui.chest-on-ghast.happy_ghast");
         int titleWidth = this.textRenderer.getWidth(title);
-        context.drawText(this.textRenderer, title, guiX + (GUI_WIDTH - titleWidth) / 2, y, 0x404040, false);
+        context.drawText(this.textRenderer, title, guiX + (GUI_WIDTH - titleWidth) / 2, y, 0xFFFFFF, true);
         y += 20;
         
-        // 等级
-        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.level", level), x, y, 0x404040, false);
+        // 等级 - 改为白色
+        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.level", level), x, y, 0xFFFFFF, true);
         y += 18;
         
-        // 血量标签
-        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.health"), x, y, 0x404040, false);
+        // 血量标签 - 改为白色
+        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.health"), x, y, 0xFFFFFF, true);
         y += 12;
         
         // 血量进度条
@@ -99,8 +87,8 @@ public class HappyGhastScreen extends Screen {
         context.drawText(this.textRenderer, healthText, x + (barWidth - this.textRenderer.getWidth(healthText)) / 2, y + 3, 0xFFFFFF, true);
         y += 22;
         
-        // 饱食度标签
-        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.hunger"), x, y, 0x404040, false);
+        // 饱食度标签 - 改为白色
+        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.hunger"), x, y, 0xFFFFFF, true);
         y += 12;
         
         // 饱食度进度条
@@ -120,8 +108,8 @@ public class HappyGhastScreen extends Screen {
         context.drawText(this.textRenderer, hungerText, x + (barWidth - this.textRenderer.getWidth(hungerText)) / 2, y + 3, 0xFFFFFF, true);
         y += 22;
         
-        // 经验标签
-        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.experience"), x, y, 0x404040, false);
+        // 经验标签 - 改为白色
+        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.experience"), x, y, 0xFFFFFF, true);
         y += 12;
         
         // 经验进度条
