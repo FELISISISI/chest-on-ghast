@@ -142,25 +142,59 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
                 }
             }
             
-            // 检查是否手持食物 - 喂食
-            // 通过检查物品是否有食物组件来判断是否为食物
-            if (itemStack.getItem().getComponents().contains(net.minecraft.component.DataComponentTypes.FOOD)) {
-                // 获取食物ID
-                String foodId = Registries.ITEM.getId(itemStack.getItem()).toString();
+            // 检查是否手持雪球或食物 - 喂食
+            String foodId = Registries.ITEM.getId(itemStack.getItem()).toString();
+            boolean isSnowball = itemStack.isOf(Items.SNOWBALL);
+            boolean isFood = itemStack.getItem().getComponents().contains(net.minecraft.component.DataComponentTypes.FOOD);
+            
+            if (isSnowball || isFood) {
+                // 检查是否为最喜欢的食物
+                boolean isFavorite = ghastData.isFavoriteFood(foodId);
                 
-                // 获取食物恢复的饱食度（使用默认值10）
-                float hungerRestore = 10.0f;
-                try {
-                    var foodComponent = itemStack.getItem().getComponents().get(net.minecraft.component.DataComponentTypes.FOOD);
-                    if (foodComponent != null) {
-                        hungerRestore = foodComponent.nutrition() * 2.0f;
+                // 获取饱食度恢复量和经验值
+                float hungerRestore;
+                int expGain;
+                
+                if (isSnowball) {
+                    // 雪球：最高恢复，但不是最喜欢的食物
+                    hungerRestore = 50.0f;
+                    expGain = 30;
+                } else if (isFavorite) {
+                    // 最喜欢的食物：比雪球更高的恢复和经验
+                    hungerRestore = 80.0f;
+                    expGain = 50;
+                    
+                    // 生成爱心粒子效果
+                    if (ghast.getEntityWorld() instanceof ServerWorld serverWorld) {
+                        // 在快乐恶魂周围生成多个爱心粒子
+                        for (int i = 0; i < 7; i++) {
+                            double offsetX = (Math.random() - 0.5) * 1.5;
+                            double offsetY = Math.random() * 1.5;
+                            double offsetZ = (Math.random() - 0.5) * 1.5;
+                            
+                            serverWorld.spawnParticles(
+                                net.minecraft.particle.ParticleTypes.HEART,
+                                ghast.getX() + offsetX,
+                                ghast.getY() + offsetY + 1.0,
+                                ghast.getZ() + offsetZ,
+                                1, // 粒子数量
+                                0.0, 0.0, 0.0, // 速度偏移
+                                0.0 // 速度
+                            );
+                        }
                     }
-                } catch (Exception ignored) {
-                    // 如果获取失败，使用默认值
+                    
+                    // 发送特殊消息
+                    player.sendMessage(
+                        Text.translatable("message.chest-on-ghast.favorite_food"),
+                        true
+                    );
+                } else {
+                    // 普通食物：根据食物类型决定
+                    float[] values = LevelConfig.getFoodValues(foodId, false);
+                    hungerRestore = values[0];
+                    expGain = (int) values[1];
                 }
-                
-                // 获取食物给予的经验值
-                int expGain = LevelConfig.getExpFromFood(foodId);
                 
                 // 添加饱食度
                 ghastData.addHunger(hungerRestore);
@@ -178,11 +212,13 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
                 }
                 
                 // 显示喂食反馈
-                player.sendMessage(
-                    Text.translatable("message.chest-on-ghast.fed", 
-                        (int)hungerRestore, expGain),
-                    true  // 显示在物品栏上方
-                );
+                if (!isFavorite) {
+                    player.sendMessage(
+                        Text.translatable("message.chest-on-ghast.fed", 
+                            (int)hungerRestore, expGain),
+                        true  // 显示在物品栏上方
+                    );
+                }
                 
                 // 消耗食物
                 if (!player.getAbilities().creativeMode) {
@@ -244,6 +280,40 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
         }
     }
     
+    
+    /**
+     * 注入到writeCustomDataToNbt方法
+     * 保存快乐恶魂的数据到NBT
+     */
+    @Inject(method = "writeCustomDataToNbt", at = @At("RETURN"))
+    private void onWriteCustomDataToNbt(NbtCompound nbt, CallbackInfo ci) {
+        if (this.ghastData != null) {
+            NbtCompound dataCompound = new NbtCompound();
+            this.ghastData.writeToNbt(dataCompound);
+            nbt.put("HappyGhastData", dataCompound);
+        }
+    }
+    
+    /**
+     * 注入到readCustomDataFromNbt方法
+     * 从NBT读取快乐恶魂的数据
+     */
+    @Inject(method = "readCustomDataFromNbt", at = @At("RETURN"))
+    private void onReadCustomDataFromNbt(NbtCompound nbt, CallbackInfo ci) {
+        if (nbt.contains("HappyGhastData")) {
+            nbt.getCompound("HappyGhastData").ifPresent(dataCompound -> {
+                this.ghastData = HappyGhastData.readFromNbt(dataCompound);
+            });
+        }
+        
+        if (this.ghastData == null) {
+            this.ghastData = new HappyGhastData();
+        }
+        
+        // 确保血量上限正确
+        HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        updateMaxHealth(ghast);
+    }
     
     /**
      * 更新快乐恶魂的最大血量
