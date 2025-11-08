@@ -1,5 +1,6 @@
 package me.noramibu.gui;
 
+import me.noramibu.Chestonghast;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
@@ -7,6 +8,7 @@ import net.minecraft.text.Text;
 
 /**
  * 快乐恶魂GUI屏幕
+ * 简化版本 - 用于调试文字渲染问题
  */
 public class HappyGhastScreen extends Screen {
     private final int level;
@@ -23,7 +25,7 @@ public class HappyGhastScreen extends Screen {
     private int guiY;
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
-        super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
+        super(Text.literal("Happy Ghast GUI")); // 使用 literal 而不是 translatable
         this.level = payload.level();
         this.experience = payload.experience();
         this.hunger = payload.hunger();
@@ -31,6 +33,9 @@ public class HappyGhastScreen extends Screen {
         this.currentHealth = payload.currentHealth();
         this.maxHunger = payload.maxHunger();
         this.expToNext = payload.expToNext();
+        
+        Chestonghast.LOGGER.info("=== HappyGhastScreen 构造函数被调用 ===");
+        Chestonghast.LOGGER.info("Level: {}, Health: {}", level, currentHealth);
     }
     
     @Override
@@ -38,104 +43,81 @@ public class HappyGhastScreen extends Screen {
         super.init();
         this.guiX = (this.width - GUI_WIDTH) / 2;
         this.guiY = (this.height - GUI_HEIGHT) / 2;
+        
+        Chestonghast.LOGGER.info("=== HappyGhastScreen init() 被调用 ===");
+        Chestonghast.LOGGER.info("Screen width: {}, height: {}", this.width, this.height);
+        Chestonghast.LOGGER.info("GUI X: {}, Y: {}", this.guiX, this.guiY);
+        Chestonghast.LOGGER.info("textRenderer: {}", this.textRenderer);
+        Chestonghast.LOGGER.info("client: {}", this.client);
     }
     
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 调用父类的render方法，处理默认的背景和组件渲染
-        super.render(context, mouseX, mouseY, delta);
+        Chestonghast.LOGGER.info("=== render() 开始 ===");
         
-        // === 调试测试：在屏幕中央绘制明显的白色文字 ===
-        context.drawText(this.textRenderer, "TEST TEXT 测试文字", this.width / 2 - 50, this.height / 2 - 50, 0xFFFFFF, true);
-        context.drawText(this.textRenderer, "Level: " + level, this.width / 2 - 50, this.height / 2 - 30, 0xFFFFFF, true);
-        context.drawText(this.textRenderer, "Health: " + currentHealth, this.width / 2 - 50, this.height / 2 - 10, 0xFFFFFF, true);
+        // 先渲染默认背景
+        this.renderBackground(context, mouseX, mouseY, delta);
         
-        // === 原来的文字渲染代码（也保留） ===
-        int x = guiX + 10;
-        int y = guiY + 8;
-        
-        // 标题 - 改为白色更明显
-        Text title = Text.translatable("gui.chest-on-ghast.happy_ghast");
-        int titleWidth = this.textRenderer.getWidth(title);
-        context.drawText(this.textRenderer, title, guiX + (GUI_WIDTH - titleWidth) / 2, y, 0xFFFFFF, true);
-        y += 20;
-        
-        // 等级 - 改为白色
-        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.level", level), x, y, 0xFFFFFF, true);
-        y += 18;
-        
-        // 血量标签 - 改为白色
-        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.health"), x, y, 0xFFFFFF, true);
-        y += 12;
-        
-        // 血量进度条
-        int barWidth = 156;
-        int barHeight = 14;
-        float healthRatio = currentHealth / maxHealth;
-        
-        context.fill(x, y, x + barWidth, y + barHeight, 0xFF000000);
-        context.fill(x + 1, y + 1, x + barWidth - 1, y + barHeight - 1, 0xFF8B8B8B);
-        context.fill(x + 2, y + 2, x + barWidth - 2, y + barHeight - 2, 0xFF555555);
-        
-        int healthBarWidth = (int)((barWidth - 4) * healthRatio);
-        if (healthBarWidth > 0) {
-            context.fill(x + 2, y + 2, x + 2 + healthBarWidth, y + barHeight - 2, 0xFFCC0000);
-            context.fill(x + 2, y + 2, x + 2 + healthBarWidth, y + 4, 0xFFFF0000);
+        // 检查关键对象
+        if (this.textRenderer == null) {
+            Chestonghast.LOGGER.error("!!! textRenderer is NULL !!!");
+            return;
         }
         
-        String healthText = String.format("%.1f / %.1f", currentHealth, maxHealth);
-        context.drawText(this.textRenderer, healthText, x + (barWidth - this.textRenderer.getWidth(healthText)) / 2, y + 3, 0xFFFFFF, true);
-        y += 22;
-        
-        // 饱食度标签 - 改为白色
-        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.hunger"), x, y, 0xFFFFFF, true);
-        y += 12;
-        
-        // 饱食度进度条
-        float hungerRatio = hunger / maxHunger;
-        
-        context.fill(x, y, x + barWidth, y + barHeight, 0xFF000000);
-        context.fill(x + 1, y + 1, x + barWidth - 1, y + barHeight - 1, 0xFF8B8B8B);
-        context.fill(x + 2, y + 2, x + barWidth - 2, y + barHeight - 2, 0xFF555555);
-        
-        int hungerBarWidth = (int)((barWidth - 4) * hungerRatio);
-        if (hungerBarWidth > 0) {
-            context.fill(x + 2, y + 2, x + 2 + hungerBarWidth, y + barHeight - 2, 0xFFCC6600);
-            context.fill(x + 2, y + 2, x + 2 + hungerBarWidth, y + 4, 0xFFFF8C00);
+        if (context == null) {
+            Chestonghast.LOGGER.error("!!! DrawContext is NULL !!!");
+            return;
         }
         
-        String hungerText = String.format("%.1f / %.1f", hunger, maxHunger);
-        context.drawText(this.textRenderer, hungerText, x + (barWidth - this.textRenderer.getWidth(hungerText)) / 2, y + 3, 0xFFFFFF, true);
-        y += 22;
+        Chestonghast.LOGGER.info("textRenderer: {}, context: {}", this.textRenderer, context);
         
-        // 经验标签 - 改为白色
-        context.drawText(this.textRenderer, Text.translatable("gui.chest-on-ghast.experience"), x, y, 0xFFFFFF, true);
-        y += 12;
-        
-        // 经验进度条
-        context.fill(x, y, x + barWidth, y + barHeight, 0xFF000000);
-        context.fill(x + 1, y + 1, x + barWidth - 1, y + barHeight - 1, 0xFF8B8B8B);
-        context.fill(x + 2, y + 2, x + barWidth - 2, y + barHeight - 2, 0xFF555555);
-        
-        if (level < 6) {
-            float expRatio = (float) experience / expToNext;
-            int expBarWidth = (int)((barWidth - 4) * expRatio);
-            if (expBarWidth > 0) {
-                context.fill(x + 2, y + 2, x + 2 + expBarWidth, y + barHeight - 2, 0xFF00AA00);
-                context.fill(x + 2, y + 2, x + 2 + expBarWidth, y + 4, 0xFF00FF00);
-            }
-            String expText = experience + " / " + expToNext;
-            context.drawText(this.textRenderer, expText, x + (barWidth - this.textRenderer.getWidth(expText)) / 2, y + 3, 0xFFFFFF, true);
-        } else {
-            context.fill(x + 2, y + 2, x + barWidth - 2, y + barHeight - 2, 0xFF00AA00);
-            context.fill(x + 2, y + 2, x + barWidth - 2, y + 4, 0xFF00FF00);
-            Text maxText = Text.translatable("gui.chest-on-ghast.max_level");
-            context.drawText(this.textRenderer, maxText, x + (barWidth - this.textRenderer.getWidth(maxText)) / 2, y + 3, 0xFFFFFF, true);
+        // 尝试最简单的文字渲染 - 在固定位置
+        try {
+            // 使用固定坐标，确保文字在屏幕上可见
+            int testX = 100;
+            int testY = 100;
+            
+            Chestonghast.LOGGER.info("尝试在 ({}, {}) 绘制文字", testX, testY);
+            
+            // 方法1: 使用 String
+            context.drawText(this.textRenderer, "=== TEST 1 ===", testX, testY, 0xFFFFFF, true);
+            Chestonghast.LOGGER.info("成功绘制测试文字 1");
+            
+            // 方法2: 使用 Text.literal
+            context.drawText(this.textRenderer, Text.literal("=== TEST 2 ==="), testX, testY + 20, 0xFF0000, true);
+            Chestonghast.LOGGER.info("成功绘制测试文字 2");
+            
+            // 方法3: 不同颜色
+            context.drawText(this.textRenderer, "Level: " + level, testX, testY + 40, 0x00FF00, true);
+            Chestonghast.LOGGER.info("成功绘制测试文字 3");
+            
+            context.drawText(this.textRenderer, "Health: " + currentHealth, testX, testY + 60, 0x0000FF, true);
+            Chestonghast.LOGGER.info("成功绘制测试文字 4");
+            
+            // 在屏幕中央
+            int centerX = this.width / 2;
+            int centerY = this.height / 2;
+            String centerText = "CENTER TEXT";
+            int textWidth = this.textRenderer.getWidth(centerText);
+            context.drawText(this.textRenderer, centerText, centerX - textWidth / 2, centerY, 0xFFFF00, true);
+            Chestonghast.LOGGER.info("成功绘制中央文字");
+            
+        } catch (Exception e) {
+            Chestonghast.LOGGER.error("绘制文字时发生异常: ", e);
+            e.printStackTrace();
         }
+        
+        Chestonghast.LOGGER.info("=== render() 结束 ===");
     }
     
     @Override
     public boolean shouldPause() {
-        return false;
+        return false; // 游戏不暂停
+    }
+    
+    @Override
+    public void close() {
+        Chestonghast.LOGGER.info("=== HappyGhastScreen 关闭 ===");
+        super.close();
     }
 }

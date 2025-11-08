@@ -51,10 +51,18 @@ public class ChestonghastClient implements ClientModInitializer {
         ClientPlayNetworking.registerGlobalReceiver(
             SyncGhastDataPayload.ID,
             (payload, context) -> {
+                // 调试日志 - 确认收到了网络包
+                Chestonghast.LOGGER.info("=== 收到 SyncGhastDataPayload ===");
+                Chestonghast.LOGGER.info("Level: {}, Health: {}/{}", payload.level(), payload.currentHealth(), payload.maxHealth());
+                
                 // 在客户端主线程中执行，确保线程安全
                 context.client().execute(() -> {
                     // 打开快乐恶魂GUI屏幕
-                    MinecraftClient.getInstance().setScreen(new HappyGhastScreen(payload));
+                    HappyGhastScreen screen = new HappyGhastScreen(payload);
+                    Chestonghast.LOGGER.info("创建了 HappyGhastScreen 实例: {}", screen);
+                    
+                    MinecraftClient.getInstance().setScreen(screen);
+                    Chestonghast.LOGGER.info("调用了 setScreen，当前屏幕: {}", MinecraftClient.getInstance().currentScreen);
                 });
             }
         );
