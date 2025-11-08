@@ -8,7 +8,7 @@ import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
-import net.minecraft.entity.passive.HappyGhastEntity;
+import net.minecraft.entity.mob.GhastEntity;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.text.Text;
 import net.minecraft.util.hit.EntityHitResult;
@@ -60,9 +60,9 @@ public class NetworkHandler {
                         EntityHitResult entityHit = (EntityHitResult) hitResult;
                         Entity targetEntity = entityHit.getEntity();
                         
-                        // 检查目标实体是否是快乐恶魂
-                        if (targetEntity instanceof HappyGhastEntity) {
-                            // 让快乐恶魂向玩家发送"你好！！！"消息
+                        // 检查目标实体是否是恶魂
+                        if (targetEntity instanceof GhastEntity) {
+                            // 让恶魂向玩家发送"你好！！！"消息
                             player.sendMessage(Text.literal("你好！！！"), false);
                             
                             // 记录日志，用于调试
@@ -80,11 +80,11 @@ public class NetworkHandler {
                 context.server().execute(() -> {
                     ServerPlayerEntity player = context.player();
                     
-                    // 根据实体ID获取快乐恶魂
+                    // 根据实体ID获取恶魂
                     Entity entity = player.getEntityWorld().getEntityById(payload.entityId());
                     
-                    if (entity instanceof HappyGhastEntity ghast) {
-                        // 读取快乐恶魂的数据
+                    if (entity instanceof GhastEntity ghast) {
+                        // 读取恶魂的数据
                         HappyGhastData data = getOrCreateGhastData(ghast);
                         
                         // 发送数据到客户端并打开GUI
@@ -124,9 +124,9 @@ public class NetworkHandler {
         // 获取玩家所在的世界
         World world = player.getEntityWorld();
         
-        // 在玩家周围5格范围内查找快乐恶魂
+        // 在玩家周围5格范围内查找恶魂
         for (Entity entity : world.getEntitiesByClass(
-            HappyGhastEntity.class, 
+            GhastEntity.class, 
             player.getBoundingBox().expand(maxDistance),
             e -> !e.isSpectator() && e.canHit()
         )) {
@@ -146,13 +146,13 @@ public class NetworkHandler {
     }
     
     /**
-     * 获取或创建快乐恶魂的数据
+     * 获取或创建恶魂的数据
      * 通过访问器接口获取数据
      * 
-     * @param ghast 快乐恶魂实体
-     * @return 快乐恶魂数据对象
+     * @param ghast 恶魂实体
+     * @return 恶魂数据对象
      */
-    public static HappyGhastData getOrCreateGhastData(HappyGhastEntity ghast) {
+    public static HappyGhastData getOrCreateGhastData(GhastEntity ghast) {
         // 使用访问器接口获取数据
         if (ghast instanceof HappyGhastDataAccessor accessor) {
             return accessor.getGhastData();
@@ -162,13 +162,13 @@ public class NetworkHandler {
     }
     
     /**
-     * 保存快乐恶魂的数据
+     * 保存恶魂的数据
      * 通过访问器接口保存数据
      * 
-     * @param ghast 快乐恶魂实体
+     * @param ghast 恶魂实体
      * @param data 要保存的数据
      */
-    public static void saveGhastData(HappyGhastEntity ghast, HappyGhastData data) {
+    public static void saveGhastData(GhastEntity ghast, HappyGhastData data) {
         // 使用访问器接口设置数据
         if (ghast instanceof HappyGhastDataAccessor accessor) {
             accessor.setGhastData(data);

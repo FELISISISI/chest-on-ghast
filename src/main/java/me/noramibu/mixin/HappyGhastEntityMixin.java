@@ -8,7 +8,7 @@ import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.passive.HappyGhastEntity;
+import net.minecraft.entity.mob.GhastEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.vehicle.ChestMinecartEntity;
 import net.minecraft.item.ItemStack;
@@ -31,11 +31,11 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.entity.EquipmentSlot;
 
 /**
- * Mixin for HappyGhastEntity
+ * Mixin for GhastEntity（原版恶魂实体）
  * 添加等级系统、喂食系统、饱食度系统和GUI交互
  * 保留原有的箱子矿车放置功能
  */
-@Mixin(HappyGhastEntity.class)
+@Mixin(GhastEntity.class)
 public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
     // 存储快乐恶魂的数据（等级、经验、饱食度等）
     @Unique
@@ -80,7 +80,7 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
      */
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
-        HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        GhastEntity ghast = (GhastEntity) (Object) this;
         
         // 确保数据已初始化
         if (this.ghastData == null) {
@@ -107,7 +107,7 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
      */
     @Inject(method = "interactMob", at = @At("HEAD"), cancellable = true)
     private void onInteractMob(PlayerEntity player, Hand hand, CallbackInfoReturnable<ActionResult> cir) {
-        HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        GhastEntity ghast = (GhastEntity) (Object) this;
         ItemStack itemStack = player.getStackInHand(hand);
         
         // 确保数据已初始化
@@ -250,7 +250,7 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
      * 根据当前等级设置正确的血量上限
      */
     @Unique
-    private void updateMaxHealth(HappyGhastEntity ghast) {
+    private void updateMaxHealth(GhastEntity ghast) {
         if (this.ghastData == null) return;
         
         float maxHealth = ghastData.getMaxHealth();
