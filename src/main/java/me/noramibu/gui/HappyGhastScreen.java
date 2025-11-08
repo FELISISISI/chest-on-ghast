@@ -46,22 +46,40 @@ public class HappyGhastScreen extends Screen {
         
         context.drawText(this.textRenderer, "Health:", startX, startY + (line++ * 15), 0xFFFFFFFF, false);
         context.drawText(this.textRenderer, String.format("  %.1f / %.1f", currentHealth, maxHealth), startX, startY + (line++ * 15), 0xFFFF0000, false);
+        drawBar(context, startX, startY + (line++ * 15), 200, 10, currentHealth / maxHealth, 0xFFFF0000);
         line++;
         
         context.drawText(this.textRenderer, "Hunger:", startX, startY + (line++ * 15), 0xFFFFFFFF, false);
         context.drawText(this.textRenderer, String.format("  %.1f / %.1f", hunger, maxHunger), startX, startY + (line++ * 15), 0xFFFF8800, false);
+        drawBar(context, startX, startY + (line++ * 15), 200, 10, hunger / maxHunger, 0xFFFF8800);
         line++;
         
         if (level < 6) {
             context.drawText(this.textRenderer, "Experience:", startX, startY + (line++ * 15), 0xFFFFFFFF, false);
             context.drawText(this.textRenderer, String.format("  %d / %d", experience, expToNext), startX, startY + (line++ * 15), 0xFF00FF00, false);
+            drawBar(context, startX, startY + (line++ * 15), 200, 10, (float)experience / expToNext, 0xFF00FF00);
         } else {
             context.drawText(this.textRenderer, "Experience: MAX LEVEL", startX, startY + (line++ * 15), 0xFFFFD700, false);
+            drawBar(context, startX, startY + (line++ * 15), 200, 10, 1.0f, 0xFFFFD700);
         }
         
         // 底部提示
         line += 2;
         context.drawText(this.textRenderer, "Press ESC to close", startX, startY + (line * 15), 0xFFAAAAAA, false);
+    }
+    
+    private void drawBar(DrawContext context, int x, int y, int width, int height, float ratio, int color) {
+        // 边框（黑色）
+        context.fill(x, y, x + width, y + height, 0xFF000000);
+        
+        // 背景（深灰色）
+        context.fill(x + 1, y + 1, x + width - 1, y + height - 1, 0xFF333333);
+        
+        // 进度条
+        int barWidth = (int)((width - 2) * Math.max(0, Math.min(1, ratio)));
+        if (barWidth > 0) {
+            context.fill(x + 1, y + 1, x + 1 + barWidth, y + height - 1, color);
+        }
     }
     
     @Override
