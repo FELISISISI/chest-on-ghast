@@ -1,13 +1,10 @@
 package me.noramibu.gui;
 
-import me.noramibu.accessor.HappyGhastDataAccessor;
-import me.noramibu.data.HappyGhastData;
+import me.noramibu.network.RequestGhastDataPayload;
 import me.noramibu.network.SyncGhastDataPayload;
-import net.minecraft.client.MinecraftClient;
+import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
-import net.minecraft.entity.Entity;
-import net.minecraft.entity.passive.HappyGhastEntity;
 import net.minecraft.text.Text;
 import java.util.List;
 
@@ -23,9 +20,20 @@ public class HappyGhastScreen extends Screen {
     private final boolean isCreative;
     private final List<String> favoriteFoods;
     
+    private int tickCounter = 0;  // 用于控制请求频率
+    
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
         this.entityId = payload.entityId();
+        updateFromPayload(payload);
+        this.isCreative = payload.isCreative();
+        this.favoriteFoods = payload.favoriteFoods();
+    }
+    
+    /**
+     * 从payload更新数据
+     */
+    public void updateFromPayload(SyncGhastDataPayload payload) {
         this.level = payload.level();
         this.currentHealth = payload.currentHealth();
         this.maxHealth = payload.maxHealth();
@@ -33,44 +41,20 @@ public class HappyGhastScreen extends Screen {
         this.maxHunger = payload.maxHunger();
         this.experience = payload.experience();
         this.expToNext = payload.expToNext();
-        this.isCreative = payload.isCreative();
-        this.favoriteFoods = payload.favoriteFoods();
     }
     
     /**
-     * 每tick更新实时数据
+     * 每tick更新，定期向服务器请求最新数据
      */
     @Override
     public void tick() {
         super.tick();
-        updateData();
-    }
-    
-    /**
-     * 从实体更新数据
-     */
-    private void updateData() {
-        if (this.client == null || this.client.world == null) {
-            return;
-        }
         
-        Entity entity = this.client.world.getEntityById(this.entityId);
-        if (entity instanceof HappyGhastEntity ghast) {
-            // 更新血量
-            this.currentHealth = ghast.getHealth();
-            
-            // 从accessor获取数据
-            if (ghast instanceof HappyGhastDataAccessor accessor) {
-                HappyGhastData data = accessor.getGhastData();
-                if (data != null) {
-                    this.level = data.getLevel();
-                    this.hunger = data.getHunger();
-                    this.maxHunger = data.getMaxHunger();
-                    this.experience = data.getExperience();
-                    this.expToNext = data.getExpToNextLevel();
-                    this.maxHealth = data.getMaxHealth();
-                }
-            }
+        tickCounter++;
+        // 每10 ticks（0.5秒）向服务器请求一次最新数据
+        if (tickCounter >= 10) {
+            ClientPlayNetworking.send(new RequestGhastDataPayload(this.entityId));
+            tickCounter = 0;
         }
     }
     
