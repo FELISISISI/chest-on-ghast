@@ -3,7 +3,7 @@ package me.noramibu.mixin;
 import me.noramibu.accessor.HappyGhastDataAccessor;
 import me.noramibu.data.HappyGhastData;
 import me.noramibu.level.LevelConfig;
-import me.noramibu.network.OpenGhastGuiPayload;
+import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.EntityType;
@@ -120,11 +120,23 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
             // 检查是否按住Shift键 - 打开GUI
             if (player.isSneaking()) {
                 if (player instanceof ServerPlayerEntity serverPlayer) {
-                    // 发送打开GUI的请求
-                    ServerPlayNetworking.send(
-                        serverPlayer, 
-                        new OpenGhastGuiPayload(ghast.getId())
+                    // 读取快乐恶魂的数据
+                    HappyGhastData data = this.getGhastData();
+                    
+                    // 直接发送数据到客户端并打开GUI
+                    // 使用SyncGhastDataPayload（已正确注册为S2C）
+                    SyncGhastDataPayload syncPayload = new SyncGhastDataPayload(
+                        ghast.getId(),
+                        data.getLevel(),
+                        data.getExperience(),
+                        data.getHunger(),
+                        data.getMaxHealth(),
+                        ghast.getHealth(),
+                        data.getMaxHunger(),
+                        data.getExpToNextLevel()
                     );
+                    
+                    ServerPlayNetworking.send(serverPlayer, syncPayload);
                     cir.setReturnValue(ActionResult.SUCCESS);
                     return;
                 }
