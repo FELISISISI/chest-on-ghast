@@ -31,7 +31,7 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.entity.EquipmentSlot;
 
 /**
- * Mixin for HappyGhastEntity
+ * Mixin for HappyGhastEntity（快乐恶魂实体）
  * 添加等级系统、喂食系统、饱食度系统和GUI交互
  * 保留原有的箱子矿车放置功能
  */
