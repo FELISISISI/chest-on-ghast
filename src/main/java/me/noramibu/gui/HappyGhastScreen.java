@@ -73,8 +73,9 @@ public class HappyGhastScreen extends Screen {
      */
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 渲染半透明背景
-        this.renderBackground(context, mouseX, mouseY, delta);
+        // 渲染简单的半透明背景（不使用模糊效果以避免冲突）
+        // 在整个屏幕上绘制一个半透明的黑色背景
+        context.fill(0, 0, this.width, this.height, 0x80000000);
         
         // 计算GUI中心位置
         int guiX = (this.width - GUI_WIDTH) / 2;
