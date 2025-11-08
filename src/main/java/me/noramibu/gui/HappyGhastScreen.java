@@ -43,7 +43,17 @@ public class HappyGhastScreen extends Screen {
         super.init();
         this.guiX = (this.width - GUI_WIDTH) / 2;
         this.guiY = (this.height - GUI_HEIGHT) / 2;
-        
+    
+    /**
+     * 覆盖默认的背景渲染方法
+     * 我们在render方法中自定义了背景，所以这里不需要默认的背景渲染
+     * 阻止super.render()调用默认的背景模糊效果，避免"Can only blur once per frame"错误
+     */
+    @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        // 不做任何事情，我们在render方法中已经绘制了自定义背景
+        // 这样可以防止Minecraft尝试应用默认的背景模糊效果
+    }
         Chestonghast.LOGGER.info("=== HappyGhastScreen init() 被调用 ===");
         Chestonghast.LOGGER.info("Screen width: {}, height: {}", this.width, this.height);
         Chestonghast.LOGGER.info("GUI X: {}, Y: {}", this.guiX, this.guiY);
