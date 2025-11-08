@@ -5,20 +5,24 @@ import net.minecraft.network.PacketByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
 import net.minecraft.util.Identifier;
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 同步快乐恶魂数据的网络包
  * 服务端发送到客户端，用于同步恶魂的数据并打开GUI
  */
 public record SyncGhastDataPayload(
-    int entityId,      // 实体ID
-    int level,         // 等级
-    int experience,    // 经验值
-    float hunger,      // 饱食度
-    float maxHealth,   // 最大血量
-    float currentHealth, // 当前血量
-    float maxHunger,   // 最大饱食度
-    int expToNext      // 升级所需经验
+    int entityId,          // 实体ID
+    int level,             // 等级
+    int experience,        // 经验值
+    float hunger,          // 饱食度
+    float maxHealth,       // 最大血量
+    float currentHealth,   // 当前血量
+    float maxHunger,       // 最大饱食度
+    int expToNext,         // 升级所需经验
+    boolean isCreative,    // 玩家是否为创造模式
+    List<String> favoriteFoods  // 最喜欢的食物（创造模式下显示）
 ) implements CustomPayload {
     
     // 网络包标识符
@@ -38,18 +42,39 @@ public record SyncGhastDataPayload(
                 buf.writeFloat(value.currentHealth);
                 buf.writeFloat(value.maxHunger);
                 buf.writeInt(value.expToNext);
+                buf.writeBoolean(value.isCreative);
+                
+                // 写入最喜欢的食物列表
+                buf.writeInt(value.favoriteFoods.size());
+                for (String food : value.favoriteFoods) {
+                    buf.writeString(food);
+                }
             },
-            buf -> new SyncGhastDataPayload(
+            buf -> {
                 // 解码器：按顺序读取所有数据
-                buf.readInt(),   // entityId
-                buf.readInt(),   // level
-                buf.readInt(),   // experience
-                buf.readFloat(), // hunger
-                buf.readFloat(), // maxHealth
-                buf.readFloat(), // currentHealth
-                buf.readFloat(), // maxHunger
-                buf.readInt()    // expToNext
-            )
+                int entityId = buf.readInt();
+                int level = buf.readInt();
+                int experience = buf.readInt();
+                float hunger = buf.readFloat();
+                float maxHealth = buf.readFloat();
+                float currentHealth = buf.readFloat();
+                float maxHunger = buf.readFloat();
+                int expToNext = buf.readInt();
+                boolean isCreative = buf.readBoolean();
+                
+                // 读取最喜欢的食物列表
+                int foodCount = buf.readInt();
+                List<String> favoriteFoods = new ArrayList<>();
+                for (int i = 0; i < foodCount; i++) {
+                    favoriteFoods.add(buf.readString());
+                }
+                
+                return new SyncGhastDataPayload(
+                    entityId, level, experience, hunger,
+                    maxHealth, currentHealth, maxHunger, expToNext,
+                    isCreative, favoriteFoods
+                );
+            }
         );
 
     /**

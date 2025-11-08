@@ -1,14 +1,13 @@
 package me.noramibu.level;
 
+import me.noramibu.config.GhastConfig;
+
 /**
  * 快乐恶魂等级配置类
- * 定义了6个等级，每个等级有不同的属性值
+ * 从JSON配置文件读取等级数据
  */
 public class LevelConfig {
     public static final int MAX_LEVEL = 6;
-    
-    // MC一昼夜时长（秒）= 20分钟 = 1200秒
-    private static final float MC_DAY_SECONDS = 1200.0f;
     
     /**
      * 等级属性数据类
@@ -35,31 +34,23 @@ public class LevelConfig {
         public float getHungerDecayRate() { return hungerDecayRate; }
     }
     
-    // 等级数据：饱食度每级翻倍，消耗速率确保一昼夜消耗完
-    private static final LevelData[] LEVEL_DATA = new LevelData[] {
-        // 等级1：100饱食度，一昼夜消耗完 (100/1200 = 0.0833/秒)
-        new LevelData(1, 20.0f, 100.0f, 100, 100.0f / MC_DAY_SECONDS),
-        
-        // 等级2：200饱食度，一昼夜消耗完
-        new LevelData(2, 30.0f, 200.0f, 200, 200.0f / MC_DAY_SECONDS),
-        
-        // 等级3：400饱食度，一昼夜消耗完
-        new LevelData(3, 45.0f, 400.0f, 350, 400.0f / MC_DAY_SECONDS),
-        
-        // 等级4：800饱食度，一昼夜消耗完
-        new LevelData(4, 65.0f, 800.0f, 550, 800.0f / MC_DAY_SECONDS),
-        
-        // 等级5：1600饱食度，一昼夜消耗完
-        new LevelData(5, 90.0f, 1600.0f, 800, 1600.0f / MC_DAY_SECONDS),
-        
-        // 等级6：3200饱食度，一昼夜消耗完
-        new LevelData(6, 120.0f, 3200.0f, 0, 3200.0f / MC_DAY_SECONDS)
-    };
-    
+    /**
+     * 从配置文件获取等级数据
+     */
     public static LevelData getLevelData(int level) {
         if (level < 1) level = 1;
         if (level > MAX_LEVEL) level = MAX_LEVEL;
-        return LEVEL_DATA[level - 1];
+        
+        GhastConfig.LevelConfig config = GhastConfig.getInstance().getLevelConfig(level);
+        float hungerDecayRate = GhastConfig.getInstance().getHungerDecayRate(level);
+        
+        return new LevelData(
+            level,
+            config.maxHealth,
+            config.maxHunger,
+            config.expToNextLevel,
+            hungerDecayRate
+        );
     }
     
     /**
@@ -69,18 +60,21 @@ public class LevelConfig {
      * @return [饱食度恢复, 经验值]
      */
     public static float[] getFoodValues(String foodItem, boolean isFavorite) {
+        GhastConfig config = GhastConfig.getInstance();
+        GhastConfig.FoodConfig foodConfig = config.foodConfig;
+        
         float hungerRestore;
         int exp;
         
-        // 雪球特殊处理：最高饱食度恢复
+        // 雪球特殊处理：使用配置文件中的值
         if (foodItem.equals("minecraft:snowball")) {
-            hungerRestore = 50.0f;
-            exp = 30;
+            hungerRestore = foodConfig.snowballHunger;
+            exp = foodConfig.snowballExp;
         }
-        // 最喜欢的食物：比雪球还高的恢复和经验
+        // 最喜欢的食物：使用配置文件中的值
         else if (isFavorite) {
-            hungerRestore = 80.0f;
-            exp = 50;
+            hungerRestore = foodConfig.favoriteHunger;
+            exp = foodConfig.favoriteExp;
         }
         // 普通食物：根据类型给予不同的值
         else {
@@ -90,7 +84,7 @@ public class LevelConfig {
                 case "minecraft:cooked_beef", "minecraft:cooked_porkchop", "minecraft:golden_carrot" -> 20.0f;
                 case "minecraft:golden_apple" -> 30.0f;
                 case "minecraft:enchanted_golden_apple" -> 40.0f;
-                default -> 12.0f;
+                default -> foodConfig.defaultHunger;
             };
             
             exp = switch (foodItem) {
@@ -99,7 +93,7 @@ public class LevelConfig {
                 case "minecraft:cooked_beef", "minecraft:cooked_porkchop", "minecraft:golden_carrot" -> 20;
                 case "minecraft:golden_apple" -> 30;
                 case "minecraft:enchanted_golden_apple" -> 50;
-                default -> 8;
+                default -> foodConfig.defaultExp;
             };
         }
         

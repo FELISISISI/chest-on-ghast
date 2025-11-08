@@ -4,6 +4,7 @@ import me.noramibu.network.SyncGhastDataPayload;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.text.Text;
+import java.util.List;
 
 public class HappyGhastScreen extends Screen {
     private final int level;
@@ -13,6 +14,8 @@ public class HappyGhastScreen extends Screen {
     private final float maxHunger;
     private final int experience;
     private final int expToNext;
+    private final boolean isCreative;
+    private final List<String> favoriteFoods;
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
@@ -23,6 +26,8 @@ public class HappyGhastScreen extends Screen {
         this.maxHunger = payload.maxHunger();
         this.experience = payload.experience();
         this.expToNext = payload.expToNext();
+        this.isCreative = payload.isCreative();
+        this.favoriteFoods = payload.favoriteFoods();
     }
     
     @Override
@@ -87,6 +92,26 @@ public class HappyGhastScreen extends Screen {
         Text closeHint = Text.translatable("gui.chest-on-ghast.close_hint");
         int closeHintWidth = this.textRenderer.getWidth(closeHint);
         context.drawText(this.textRenderer, closeHint, centerX - closeHintWidth / 2, hintY, 0xFF888888, false);
+        
+        // 如果是创造模式，显示最喜欢的食物
+        if (isCreative && favoriteFoods != null && !favoriteFoods.isEmpty()) {
+            int foodY = hintY + 25;
+            
+            // 标题
+            Text favTitle = Text.translatable("gui.chest-on-ghast.favorite_foods");
+            int favTitleWidth = this.textRenderer.getWidth(favTitle);
+            context.drawText(this.textRenderer, favTitle, centerX - favTitleWidth / 2, foodY, 0xFFFFD700, false);
+            
+            // 列出三个最喜欢的食物
+            for (int i = 0; i < favoriteFoods.size() && i < 3; i++) {
+                String foodId = favoriteFoods.get(i);
+                // 提取物品名称（去掉minecraft:前缀）
+                String foodName = foodId.replace("minecraft:", "");
+                Text foodText = Text.literal("❤ " + foodName);
+                int foodWidth = this.textRenderer.getWidth(foodText);
+                context.drawText(this.textRenderer, foodText, centerX - foodWidth / 2, foodY + 15 + i * 12, 0xFFFF69B4, false);
+            }
+        }
     }
     
     /**

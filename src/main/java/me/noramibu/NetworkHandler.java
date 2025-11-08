@@ -96,7 +96,9 @@ public class NetworkHandler {
                             data.getMaxHealth(),
                             ghast.getHealth(),
                             data.getMaxHunger(),
-                            data.getExpToNextLevel()
+                            data.getExpToNextLevel(),
+                            player.isCreative(),  // 玩家创造模式状态
+                            data.getFavoriteFoods()  // 最喜欢的食物列表
                         );
                         
                         ServerPlayNetworking.send(player, syncPayload);
