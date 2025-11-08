@@ -1,3 +1,11 @@
 {
-  "key.chest-on-ghast.greet": "问候快乐恶魂"
+  "key.chest-on-ghast.greet": "问候快乐恶魂",
+  "gui.chest-on-ghast.happy_ghast": "快乐恶魂",
+  "gui.chest-on-ghast.level": "等级：%s",
+  "gui.chest-on-ghast.health": "血量",
+  "gui.chest-on-ghast.hunger": "饱食度",
+  "gui.chest-on-ghast.experience": "经验值",
+  "gui.chest-on-ghast.max_level": "满级",
+  "message.chest-on-ghast.level_up": "快乐恶魂升级到了等级 %s！",
+  "message.chest-on-ghast.fed": "饱食度 +%s  经验 +%s"
 }

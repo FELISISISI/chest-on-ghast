@@ -1,3 +1,11 @@
 {
-  "key.chest-on-ghast.greet": "Greet Happy Ghast"
+  "key.chest-on-ghast.greet": "Greet Happy Ghast",
+  "gui.chest-on-ghast.happy_ghast": "Happy Ghast",
+  "gui.chest-on-ghast.level": "Level: %s",
+  "gui.chest-on-ghast.health": "Health",
+  "gui.chest-on-ghast.hunger": "Hunger",
+  "gui.chest-on-ghast.experience": "Experience",
+  "gui.chest-on-ghast.max_level": "MAX",
+  "message.chest-on-ghast.level_up": "Happy Ghast leveled up to level %s!",
+  "message.chest-on-ghast.fed": "Hunger +%s  EXP +%s"
 }
