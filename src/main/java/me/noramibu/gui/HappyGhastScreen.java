@@ -14,8 +14,11 @@ public class HappyGhastScreen extends Screen {
     private final int experience;
     private final int expToNext;
     
+    private static final int GUI_WIDTH = 250;
+    private static final int SPACING = 12;  // 缩小间距
+    
     public HappyGhastScreen(SyncGhastDataPayload payload) {
-        super(Text.literal("Happy Ghast"));
+        super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
         this.level = payload.level();
         this.currentHealth = payload.currentHealth();
         this.maxHealth = payload.maxHealth();
@@ -27,45 +30,92 @@ public class HappyGhastScreen extends Screen {
     
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 半透明暗色背景
+        // 半透明背景
         context.fill(0, 0, this.width, this.height, 0xC0101010);
         
         super.render(context, mouseX, mouseY, delta);
         
-        // 直接在屏幕上绘制文字 - 使用白色文字（在暗色背景上更清晰）
-        int startX = 50;
+        // 计算居中位置
+        int centerX = this.width / 2;
         int startY = 50;
-        int line = 0;
+        int y = startY;
         
-        // 每一行都是独立的drawText调用
-        context.drawText(this.textRenderer, "=== Happy Ghast Info ===", startX, startY + (line++ * 15), 0xFFFFFFFF, false);
-        line++;
+        // 标题（居中）
+        Text title = Text.translatable("gui.chest-on-ghast.happy_ghast");
+        int titleWidth = this.textRenderer.getWidth(title);
+        context.drawText(this.textRenderer, title, centerX - titleWidth / 2, y, 0xFFFFFFFF, false);
+        y += SPACING * 2;
         
-        context.drawText(this.textRenderer, "Level: " + level, startX, startY + (line++ * 15), 0xFFFFFFFF, false);
-        line++;
+        // 等级（居中）
+        Text levelText = Text.translatable("gui.chest-on-ghast.level", level);
+        int levelWidth = this.textRenderer.getWidth(levelText);
+        context.drawText(this.textRenderer, levelText, centerX - levelWidth / 2, y, 0xFFFFFFFF, false);
+        y += SPACING * 2;
         
-        context.drawText(this.textRenderer, "Health:", startX, startY + (line++ * 15), 0xFFFFFFFF, false);
-        context.drawText(this.textRenderer, String.format("  %.1f / %.1f", currentHealth, maxHealth), startX, startY + (line++ * 15), 0xFFFF0000, false);
-        drawBar(context, startX, startY + (line++ * 15), 200, 10, currentHealth / maxHealth, 0xFFFF0000);
-        line++;
+        // 血量标签（居中）
+        Text healthLabel = Text.translatable("gui.chest-on-ghast.health");
+        int healthLabelWidth = this.textRenderer.getWidth(healthLabel);
+        context.drawText(this.textRenderer, healthLabel, centerX - healthLabelWidth / 2, y, 0xFFFFFFFF, false);
+        y += SPACING;
         
-        context.drawText(this.textRenderer, "Hunger:", startX, startY + (line++ * 15), 0xFFFFFFFF, false);
-        context.drawText(this.textRenderer, String.format("  %.1f / %.1f", hunger, maxHunger), startX, startY + (line++ * 15), 0xFFFF8800, false);
-        drawBar(context, startX, startY + (line++ * 15), 200, 10, hunger / maxHunger, 0xFFFF8800);
-        line++;
+        // 血量数值（居中）
+        String healthValue = String.format("%.1f / %.1f", currentHealth, maxHealth);
+        int healthValueWidth = this.textRenderer.getWidth(healthValue);
+        context.drawText(this.textRenderer, healthValue, centerX - healthValueWidth / 2, y, 0xFFFF0000, false);
+        y += SPACING;
+        
+        // 血量进度条（居中）
+        int barWidth = 200;
+        drawBar(context, centerX - barWidth / 2, y, barWidth, 8, currentHealth / maxHealth, 0xFFFF0000);
+        y += SPACING * 2;
+        
+        // 饱食度标签（居中）
+        Text hungerLabel = Text.translatable("gui.chest-on-ghast.hunger");
+        int hungerLabelWidth = this.textRenderer.getWidth(hungerLabel);
+        context.drawText(this.textRenderer, hungerLabel, centerX - hungerLabelWidth / 2, y, 0xFFFFFFFF, false);
+        y += SPACING;
+        
+        // 饱食度数值（居中）
+        String hungerValue = String.format("%.1f / %.1f", hunger, maxHunger);
+        int hungerValueWidth = this.textRenderer.getWidth(hungerValue);
+        context.drawText(this.textRenderer, hungerValue, centerX - hungerValueWidth / 2, y, 0xFFFF8800, false);
+        y += SPACING;
+        
+        // 饱食度进度条（居中）
+        drawBar(context, centerX - barWidth / 2, y, barWidth, 8, hunger / maxHunger, 0xFFFF8800);
+        y += SPACING * 2;
+        
+        // 经验标签（居中）
+        Text expLabel = Text.translatable("gui.chest-on-ghast.experience");
+        int expLabelWidth = this.textRenderer.getWidth(expLabel);
+        context.drawText(this.textRenderer, expLabel, centerX - expLabelWidth / 2, y, 0xFFFFFFFF, false);
+        y += SPACING;
         
         if (level < 6) {
-            context.drawText(this.textRenderer, "Experience:", startX, startY + (line++ * 15), 0xFFFFFFFF, false);
-            context.drawText(this.textRenderer, String.format("  %d / %d", experience, expToNext), startX, startY + (line++ * 15), 0xFF00FF00, false);
-            drawBar(context, startX, startY + (line++ * 15), 200, 10, (float)experience / expToNext, 0xFF00FF00);
+            // 经验数值（居中）
+            String expValue = String.format("%d / %d", experience, expToNext);
+            int expValueWidth = this.textRenderer.getWidth(expValue);
+            context.drawText(this.textRenderer, expValue, centerX - expValueWidth / 2, y, 0xFF00FF00, false);
+            y += SPACING;
+            
+            // 经验进度条（居中）
+            drawBar(context, centerX - barWidth / 2, y, barWidth, 8, (float)experience / expToNext, 0xFF00FF00);
         } else {
-            context.drawText(this.textRenderer, "Experience: MAX LEVEL", startX, startY + (line++ * 15), 0xFFFFD700, false);
-            drawBar(context, startX, startY + (line++ * 15), 200, 10, 1.0f, 0xFFFFD700);
+            // 满级文字（居中）
+            Text maxLevel = Text.translatable("gui.chest-on-ghast.max_level");
+            int maxLevelWidth = this.textRenderer.getWidth(maxLevel);
+            context.drawText(this.textRenderer, maxLevel, centerX - maxLevelWidth / 2, y, 0xFFFFD700, false);
+            y += SPACING;
+            
+            // 满级进度条（居中）
+            drawBar(context, centerX - barWidth / 2, y, barWidth, 8, 1.0f, 0xFFFFD700);
         }
+        y += SPACING * 2;
         
-        // 底部提示
-        line += 2;
-        context.drawText(this.textRenderer, "Press ESC to close", startX, startY + (line * 15), 0xFFAAAAAA, false);
+        // 底部提示（居中）
+        Text closeHint = Text.translatable("gui.chest-on-ghast.close_hint");
+        int closeHintWidth = this.textRenderer.getWidth(closeHint);
+        context.drawText(this.textRenderer, closeHint, centerX - closeHintWidth / 2, y, 0xFF888888, false);
     }
     
     private void drawBar(DrawContext context, int x, int y, int width, int height, float ratio, int color) {
