@@ -1,17 +1,20 @@
 package me.noramibu;
 
+import me.noramibu.gui.HappyGhastScreen;
 import me.noramibu.network.GreetGhastPayload;
+import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.option.KeyBinding;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
 /**
  * 客户端初始化类
- * 负责注册按键绑定和处理客户端逻辑
+ * 负责注册按键绑定、处理客户端逻辑和GUI显示
  */
 public class ChestonghastClient implements ClientModInitializer {
     // 定义H键绑定，用于与快乐恶魂互动
@@ -19,7 +22,7 @@ public class ChestonghastClient implements ClientModInitializer {
 
     /**
      * 客户端初始化方法
-     * 在客户端启动时调用，注册按键绑定和事件监听器
+     * 在客户端启动时调用，注册按键绑定、事件监听器和网络包接收器
      */
     @Override
     public void onInitializeClient() {
@@ -42,5 +45,18 @@ public class ChestonghastClient implements ClientModInitializer {
                 ClientPlayNetworking.send(new GreetGhastPayload());
             }
         });
+        
+        // 注册客户端网络包接收器
+        // 接收服务端发送的快乐恶魂数据并打开GUI
+        ClientPlayNetworking.registerGlobalReceiver(
+            SyncGhastDataPayload.ID,
+            (payload, context) -> {
+                // 在客户端主线程中执行，确保线程安全
+                context.client().execute(() -> {
+                    // 打开快乐恶魂GUI屏幕
+                    MinecraftClient.getInstance().setScreen(new HappyGhastScreen(payload));
+                });
+            }
+        );
     }
 }

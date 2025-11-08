@@ -1,6 +1,9 @@
 package me.noramibu;
 
+import me.noramibu.data.HappyGhastData;
 import me.noramibu.network.GreetGhastPayload;
+import me.noramibu.network.OpenGhastGuiPayload;
+import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
@@ -19,16 +22,28 @@ import net.minecraft.world.World;
 public class NetworkHandler {
     /**
      * 注册网络包类型和服务端接收器
-     * 当服务端接收到GreetGhastPayload包时，执行相应的逻辑
+     * 注册所有自定义网络包并设置处理逻辑
      */
     public static void registerServerReceivers() {
-        // 注册网络包类型
+        // 注册问候快乐恶魂的网络包
         PayloadTypeRegistry.playC2S().register(
             GreetGhastPayload.ID, 
             GreetGhastPayload.CODEC
         );
         
-        // 注册服务端网络包接收器
+        // 注册打开GUI的网络包
+        PayloadTypeRegistry.playC2S().register(
+            OpenGhastGuiPayload.ID,
+            OpenGhastGuiPayload.CODEC
+        );
+        
+        // 注册同步数据的网络包（服务端到客户端）
+        PayloadTypeRegistry.playS2C().register(
+            SyncGhastDataPayload.ID,
+            SyncGhastDataPayload.CODEC
+        );
+        
+        // 注册问候快乐恶魂的处理器
         ServerPlayNetworking.registerGlobalReceiver(
             GreetGhastPayload.ID,
             (payload, context) -> {
@@ -52,6 +67,40 @@ public class NetworkHandler {
                             // 记录日志，用于调试
                             Chestonghast.LOGGER.info("玩家 {} 对快乐恶魂按下了H键", player.getName().getString());
                         }
+                    }
+                });
+            }
+        );
+        
+        // 注册打开GUI的处理器
+        ServerPlayNetworking.registerGlobalReceiver(
+            OpenGhastGuiPayload.ID,
+            (payload, context) -> {
+                context.server().execute(() -> {
+                    ServerPlayerEntity player = context.player();
+                    
+                    // 根据实体ID获取快乐恶魂
+                    Entity entity = player.getEntityWorld().getEntityById(payload.entityId());
+                    
+                    if (entity instanceof HappyGhastEntity ghast) {
+                        // 读取快乐恶魂的数据
+                        HappyGhastData data = getOrCreateGhastData(ghast);
+                        
+                        // 发送数据到客户端并打开GUI
+                        SyncGhastDataPayload syncPayload = new SyncGhastDataPayload(
+                            ghast.getId(),
+                            data.getLevel(),
+                            data.getExperience(),
+                            data.getHunger(),
+                            data.getMaxHealth(),
+                            ghast.getHealth(),
+                            data.getMaxHunger(),
+                            data.getExpToNextLevel()
+                        );
+                        
+                        ServerPlayNetworking.send(player, syncPayload);
+                        
+                        Chestonghast.LOGGER.info("玩家 {} 打开了快乐恶魂GUI", player.getName().getString());
                     }
                 });
             }
@@ -94,4 +143,35 @@ public class NetworkHandler {
         
         return null;
     }
+    
+    /**
+     * 获取或创建快乐恶魂的数据
+     * 通过访问器接口获取数据
+     * 
+     * @param ghast 快乐恶魂实体
+     * @return 快乐恶魂数据对象
+     */
+    public static HappyGhastData getOrCreateGhastData(HappyGhastEntity ghast) {
+        // 使用访问器接口获取数据
+        if (ghast instanceof me.noramibu.mixin.HappyGhastDataAccessor accessor) {
+            return accessor.getGhastData();
+        }
+        // 如果访问器不可用，返回新数据（不应该发生）
+        return new HappyGhastData();
+    }
+    
+    /**
+     * 保存快乐恶魂的数据
+     * 通过访问器接口保存数据
+     * 
+     * @param ghast 快乐恶魂实体
+     * @param data 要保存的数据
+     */
+    public static void saveGhastData(HappyGhastEntity ghast, HappyGhastData data) {
+        // 使用访问器接口设置数据
+        if (ghast instanceof me.noramibu.mixin.HappyGhastDataAccessor accessor) {
+            accessor.setGhastData(data);
+        }
+    }
 }
+
