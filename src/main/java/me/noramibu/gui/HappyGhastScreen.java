@@ -11,12 +11,12 @@ import net.minecraft.util.Identifier;
 
 /**
  * 快乐恶魂GUI屏幕
- * 显示快乐恶魂的外观预览、血量、饱食度、经验和等级信息
- * 设计原则：美观、信息清晰、排版和谐
+ * 显示快乐恶魂的血量、饱食度、经验和等级信息
+ * 使用Minecraft官方GUI样式，简洁美观
  */
 public class HappyGhastScreen extends Screen {
-    // GUI背景纹理（使用Minecraft原版纹理）
-    private static final Identifier STATS_ICONS = Identifier.ofVanilla("textures/gui/icons.png");
+    // GUI背景纹理（使用Minecraft原版容器纹理）
+    private static final Identifier BACKGROUND_TEXTURE = Identifier.ofVanilla("textures/gui/demo_background.png");
     
     // 快乐恶魂数据
     private final int entityId;
@@ -28,12 +28,9 @@ public class HappyGhastScreen extends Screen {
     private final float maxHunger;
     private final int expToNext;
     
-    // 实体引用（用于渲染外观预览）
-    private Entity ghastEntity;
-    
-    // GUI尺寸
-    private static final int GUI_WIDTH = 256;
-    private static final int GUI_HEIGHT = 200;
+    // GUI尺寸（使用更紧凑的布局）
+    private static final int GUI_WIDTH = 176;
+    private static final int GUI_HEIGHT = 166;
     
     /**
      * 构造函数
@@ -57,11 +54,6 @@ public class HappyGhastScreen extends Screen {
     @Override
     protected void init() {
         super.init();
-        
-        // 获取快乐恶魂实体引用
-        if (this.client != null && this.client.world != null) {
-            this.ghastEntity = this.client.world.getEntityById(entityId);
-        }
     }
     
     /**
@@ -73,112 +65,81 @@ public class HappyGhastScreen extends Screen {
      */
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 渲染简单的半透明背景（不使用模糊效果以避免冲突）
-        // 在整个屏幕上绘制一个半透明的黑色背景
-        context.fill(0, 0, this.width, this.height, 0x80000000);
+        // 渲染暗淡的背景（使用Minecraft风格）
+        super.render(context, mouseX, mouseY, delta);
         
         // 计算GUI中心位置
         int guiX = (this.width - GUI_WIDTH) / 2;
         int guiY = (this.height - GUI_HEIGHT) / 2;
         
-        // 绘制GUI背景面板
-        renderBackgroundPanel(context, guiX, guiY);
+        // 绘制Minecraft官方风格的GUI背景
+        renderMinecraftStyleBackground(context, guiX, guiY);
         
         // 绘制标题
-        renderTitle(context, guiX);
+        renderTitle(context, guiX, guiY);
         
-        // 绘制快乐恶魂3D模型预览
-        renderGhastPreview(context, guiX + 40, guiY + 80);
-        
-        // 绘制等级信息
-        renderLevelInfo(context, guiX + 150, guiY + 40);
+        // 绘制等级信息（显眼位置）
+        renderLevelInfo(context, guiX + 10, guiY + 20);
         
         // 绘制血量条
-        renderHealthBar(context, guiX + 150, guiY + 70);
+        renderHealthBar(context, guiX + 10, guiY + 50);
         
         // 绘制饱食度条
-        renderHungerBar(context, guiX + 150, guiY + 100);
+        renderHungerBar(context, guiX + 10, guiY + 85);
         
         // 绘制经验条
-        renderExpBar(context, guiX + 150, guiY + 130);
-        
-        super.render(context, mouseX, mouseY, delta);
+        renderExpBar(context, guiX + 10, guiY + 120);
     }
     
     /**
-     * 渲染背景面板
-     * 绘制一个带边框的深色半透明背景
+     * 渲染Minecraft官方风格的背景
+     * 使用九宫格纹理绘制标准容器背景
      */
-    private void renderBackgroundPanel(DrawContext context, int x, int y) {
-        // 主背景 - 深灰色半透明
-        context.fill(x, y, x + GUI_WIDTH, y + GUI_HEIGHT, 0xD0101010);
+    private void renderMinecraftStyleBackground(DrawContext context, int x, int y) {
+        // 使用Minecraft的标准方法绘制九宫格背景
+        // 绘制背景纹理（使用渐变效果模拟官方样式）
         
-        // 边框 - 亮灰色
-        context.fill(x, y, x + GUI_WIDTH, y + 2, 0xFF8B8B8B); // 顶部
-        context.fill(x, y + GUI_HEIGHT - 2, x + GUI_WIDTH, y + GUI_HEIGHT, 0xFF8B8B8B); // 底部
-        context.fill(x, y, x + 2, y + GUI_HEIGHT, 0xFF8B8B8B); // 左侧
-        context.fill(x + GUI_WIDTH - 2, y, x + GUI_WIDTH, y + GUI_HEIGHT, 0xFF8B8B8B); // 右侧
+        // 主背景 - 使用Minecraft标准灰色
+        context.fill(x, y, x + GUI_WIDTH, y + GUI_HEIGHT, 0xFFC6C6C6);
         
-        // 装饰线 - 金色
-        context.fill(x + 10, y + 30, x + GUI_WIDTH - 10, y + 32, 0xFFFFD700);
+        // 绘制顶部边框（深色）
+        context.fill(x, y, x + GUI_WIDTH, y + 1, 0xFF373737);
+        context.fill(x, y + 1, x + 1, y + GUI_HEIGHT, 0xFF373737);
+        
+        // 绘制底部和右侧边框（亮色）
+        context.fill(x, y + GUI_HEIGHT - 1, x + GUI_WIDTH, y + GUI_HEIGHT, 0xFFFFFFFF);
+        context.fill(x + GUI_WIDTH - 1, y, x + GUI_WIDTH, y + GUI_HEIGHT, 0xFFFFFFFF);
+        
+        // 内部阴影效果
+        context.fill(x + 1, y + 1, x + GUI_WIDTH - 1, y + 2, 0xFF8B8B8B);
+        context.fill(x + 1, y + 1, x + 2, y + GUI_HEIGHT - 1, 0xFF8B8B8B);
     }
     
     /**
      * 渲染标题
      */
-    private void renderTitle(DrawContext context, int x) {
+    private void renderTitle(DrawContext context, int x, int y) {
         Text title = Text.translatable("gui.chest-on-ghast.happy_ghast");
         int titleWidth = this.textRenderer.getWidth(title);
+        // 标题居中显示，使用深色文字
         context.drawText(this.textRenderer, title, 
             x + (GUI_WIDTH - titleWidth) / 2, 
-            (this.height - GUI_HEIGHT) / 2 + 10, 
-            0xFFD700, true);
-    }
-    
-    /**
-     * 渲染快乐恶魂外观预览
-     * 使用简化的图形表示快乐恶魂
-     */
-    private void renderGhastPreview(DrawContext context, int x, int y) {
-        // 绘制一个简化的快乐恶魂图标
-        int size = 60;
-        
-        // 主体 - 白色方块
-        context.fill(x - size/2, y - size/2, x + size/2, y + size/2, 0xFFFFFFFF);
-        
-        // 边框 - 浅灰色
-        context.fill(x - size/2, y - size/2, x + size/2, y - size/2 + 2, 0xFFCCCCCC);
-        context.fill(x - size/2, y + size/2 - 2, x + size/2, y + size/2, 0xFFCCCCCC);
-        context.fill(x - size/2, y - size/2, x - size/2 + 2, y + size/2, 0xFFCCCCCC);
-        context.fill(x + size/2 - 2, y - size/2, x + size/2, y + size/2, 0xFFCCCCCC);
-        
-        // 眼睛 - 黑色
-        int eyeSize = 6;
-        int eyeOffset = 12;
-        context.fill(x - eyeOffset, y - 10, x - eyeOffset + eyeSize, y - 10 + eyeSize, 0xFF000000);
-        context.fill(x + eyeOffset - eyeSize, y - 10, x + eyeOffset, y - 10 + eyeSize, 0xFF000000);
-        
-        // 微笑 - 黑色弧线（简化为矩形组合）
-        int mouthY = y + 5;
-        int mouthWidth = 20;
-        context.fill(x - mouthWidth/2, mouthY, x + mouthWidth/2, mouthY + 2, 0xFF000000);
-        context.fill(x - mouthWidth/2, mouthY, x - mouthWidth/2 + 2, mouthY + 5, 0xFF000000);
-        context.fill(x + mouthWidth/2 - 2, mouthY, x + mouthWidth/2, mouthY + 5, 0xFF000000);
-        
-        // 等级徽章（在右上角）
-        String levelBadge = "Lv." + level;
-        int badgeX = x + size/2 - this.textRenderer.getWidth(levelBadge) - 5;
-        int badgeY = y - size/2 + 5;
-        context.fill(badgeX - 2, badgeY - 2, badgeX + this.textRenderer.getWidth(levelBadge) + 2, badgeY + 10, 0xD0FFD700);
-        context.drawText(this.textRenderer, levelBadge, badgeX, badgeY, 0x000000, false);
+            y + 6, 
+            0x404040, false);
     }
     
     /**
      * 渲染等级信息
      */
     private void renderLevelInfo(DrawContext context, int x, int y) {
-        Text levelText = Text.translatable("gui.chest-on-ghast.level", level);
-        context.drawText(this.textRenderer, levelText, x, y, 0xFFFFFF, true);
+        // 等级标题
+        Text levelLabel = Text.literal("等级: ");
+        context.drawText(this.textRenderer, levelLabel, x, y, 0x404040, false);
+        
+        // 等级数值（使用金色突出显示）
+        String levelValue = String.valueOf(level);
+        int labelWidth = this.textRenderer.getWidth(levelLabel);
+        context.drawText(this.textRenderer, levelValue, x + labelWidth, y, 0xFFAA00, false);
     }
     
     /**
@@ -187,22 +148,36 @@ public class HappyGhastScreen extends Screen {
     private void renderHealthBar(DrawContext context, int x, int y) {
         // 标签
         Text label = Text.translatable("gui.chest-on-ghast.health");
-        context.drawText(this.textRenderer, label, x, y - 10, 0xFFFFFF, false);
+        context.drawText(this.textRenderer, label, x, y, 0x404040, false);
         
-        // 血量条背景
-        int barWidth = 80;
-        int barHeight = 10;
-        context.fill(x, y, x + barWidth, y + barHeight, 0xFF555555);
+        // 血量条位置调整
+        int barY = y + 12;
+        int barWidth = 156;
+        int barHeight = 14;
         
-        // 血量条前景（红色）
+        // 血量条外边框（深色）
+        context.fill(x, barY, x + barWidth, barY + barHeight, 0xFF000000);
+        
+        // 血量条内边框（浅色）
+        context.fill(x + 1, barY + 1, x + barWidth - 1, barY + barHeight - 1, 0xFF8B8B8B);
+        
+        // 血量条背景（深灰色）
+        context.fill(x + 2, barY + 2, x + barWidth - 2, barY + barHeight - 2, 0xFF555555);
+        
+        // 血量条前景（红色渐变效果）
         float healthRatio = currentHealth / maxHealth;
-        int healthBarWidth = (int)(barWidth * healthRatio);
-        context.fill(x, y, x + healthBarWidth, y + barHeight, 0xFFFF0000);
+        int healthBarWidth = (int)((barWidth - 4) * healthRatio);
+        if (healthBarWidth > 0) {
+            // 深红色底
+            context.fill(x + 2, barY + 2, x + 2 + healthBarWidth, barY + barHeight - 2, 0xFFCC0000);
+            // 亮红色高光
+            context.fill(x + 2, barY + 2, x + 2 + healthBarWidth, barY + 4, 0xFFFF0000);
+        }
         
-        // 血量数值文本
+        // 血量数值文本（居中显示）
         String healthText = String.format("%.1f / %.1f", currentHealth, maxHealth);
         int textX = x + (barWidth - this.textRenderer.getWidth(healthText)) / 2;
-        context.drawText(this.textRenderer, healthText, textX, y + 1, 0xFFFFFF, true);
+        context.drawText(this.textRenderer, healthText, textX, barY + 3, 0xFFFFFF, true);
     }
     
     /**
@@ -211,22 +186,36 @@ public class HappyGhastScreen extends Screen {
     private void renderHungerBar(DrawContext context, int x, int y) {
         // 标签
         Text label = Text.translatable("gui.chest-on-ghast.hunger");
-        context.drawText(this.textRenderer, label, x, y - 10, 0xFFFFFF, false);
+        context.drawText(this.textRenderer, label, x, y, 0x404040, false);
         
-        // 饱食度条背景
-        int barWidth = 80;
-        int barHeight = 10;
-        context.fill(x, y, x + barWidth, y + barHeight, 0xFF555555);
+        // 饱食度条位置调整
+        int barY = y + 12;
+        int barWidth = 156;
+        int barHeight = 14;
         
-        // 饱食度条前景（橙色）
+        // 饱食度条外边框（深色）
+        context.fill(x, barY, x + barWidth, barY + barHeight, 0xFF000000);
+        
+        // 饱食度条内边框（浅色）
+        context.fill(x + 1, barY + 1, x + barWidth - 1, barY + barHeight - 1, 0xFF8B8B8B);
+        
+        // 饱食度条背景（深灰色）
+        context.fill(x + 2, barY + 2, x + barWidth - 2, barY + barHeight - 2, 0xFF555555);
+        
+        // 饱食度条前景（橙色渐变效果）
         float hungerRatio = hunger / maxHunger;
-        int hungerBarWidth = (int)(barWidth * hungerRatio);
-        context.fill(x, y, x + hungerBarWidth, y + barHeight, 0xFFFF8C00);
+        int hungerBarWidth = (int)((barWidth - 4) * hungerRatio);
+        if (hungerBarWidth > 0) {
+            // 深橙色底
+            context.fill(x + 2, barY + 2, x + 2 + hungerBarWidth, barY + barHeight - 2, 0xFFCC6600);
+            // 亮橙色高光
+            context.fill(x + 2, barY + 2, x + 2 + hungerBarWidth, barY + 4, 0xFFFF8C00);
+        }
         
-        // 饱食度数值文本
+        // 饱食度数值文本（居中显示）
         String hungerText = String.format("%.1f / %.1f", hunger, maxHunger);
         int textX = x + (barWidth - this.textRenderer.getWidth(hungerText)) / 2;
-        context.drawText(this.textRenderer, hungerText, textX, y + 1, 0xFFFFFF, true);
+        context.drawText(this.textRenderer, hungerText, textX, barY + 3, 0xFFFFFF, true);
     }
     
     /**
@@ -235,29 +224,45 @@ public class HappyGhastScreen extends Screen {
     private void renderExpBar(DrawContext context, int x, int y) {
         // 标签
         Text label = Text.translatable("gui.chest-on-ghast.experience");
-        context.drawText(this.textRenderer, label, x, y - 10, 0xFFFFFF, false);
+        context.drawText(this.textRenderer, label, x, y, 0x404040, false);
         
-        // 经验条背景
-        int barWidth = 80;
-        int barHeight = 10;
-        context.fill(x, y, x + barWidth, y + barHeight, 0xFF555555);
+        // 经验条位置调整
+        int barY = y + 12;
+        int barWidth = 156;
+        int barHeight = 14;
         
-        // 经验条前景（绿色）
+        // 经验条外边框（深色）
+        context.fill(x, barY, x + barWidth, barY + barHeight, 0xFF000000);
+        
+        // 经验条内边框（浅色）
+        context.fill(x + 1, barY + 1, x + barWidth - 1, barY + barHeight - 1, 0xFF8B8B8B);
+        
+        // 经验条背景（深灰色）
+        context.fill(x + 2, barY + 2, x + barWidth - 2, barY + barHeight - 2, 0xFF555555);
+        
+        // 经验条前景（绿色渐变效果）
         if (level < 6) {
             float expRatio = (float)experience / expToNext;
-            int expBarWidth = (int)(barWidth * expRatio);
-            context.fill(x, y, x + expBarWidth, y + barHeight, 0xFF00FF00);
+            int expBarWidth = (int)((barWidth - 4) * expRatio);
+            if (expBarWidth > 0) {
+                // 深绿色底
+                context.fill(x + 2, barY + 2, x + 2 + expBarWidth, barY + barHeight - 2, 0xFF00AA00);
+                // 亮绿色高光
+                context.fill(x + 2, barY + 2, x + 2 + expBarWidth, barY + 4, 0xFF00FF00);
+            }
             
-            // 经验数值文本
+            // 经验数值文本（居中显示）
             String expText = experience + " / " + expToNext;
             int textX = x + (barWidth - this.textRenderer.getWidth(expText)) / 2;
-            context.drawText(this.textRenderer, expText, textX, y + 1, 0xFFFFFF, true);
+            context.drawText(this.textRenderer, expText, textX, barY + 3, 0xFFFFFF, true);
         } else {
-            // 满级显示
-            context.fill(x, y, x + barWidth, y + barHeight, 0xFF00FF00);
+            // 满级显示（充满绿色）
+            context.fill(x + 2, barY + 2, x + barWidth - 2, barY + barHeight - 2, 0xFF00AA00);
+            context.fill(x + 2, barY + 2, x + barWidth - 2, barY + 4, 0xFF00FF00);
+            
             String maxText = Text.translatable("gui.chest-on-ghast.max_level").getString();
             int textX = x + (barWidth - this.textRenderer.getWidth(maxText)) / 2;
-            context.drawText(this.textRenderer, maxText, textX, y + 1, 0xFFFFFF, true);
+            context.drawText(this.textRenderer, maxText, textX, barY + 3, 0xFFFFFF, true);
         }
     }
     
