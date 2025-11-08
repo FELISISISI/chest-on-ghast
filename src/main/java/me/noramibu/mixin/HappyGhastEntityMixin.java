@@ -36,7 +36,7 @@ import net.minecraft.entity.EquipmentSlot;
  * 保留原有的箱子矿车放置功能
  */
 @Mixin(HappyGhastEntity.class)
-public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
+public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.MobEntity implements HappyGhastDataAccessor {
     // 存储快乐恶魂的数据（等级、经验、饱食度等）
     @Unique
     private HappyGhastData ghastData;
@@ -44,6 +44,11 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
     // 用于跟踪tick计数，控制饱食度更新频率
     @Unique
     private int tickCounter = 0;
+    
+    // 这个构造函数仅为了满足编译，永远不会被调用
+    protected HappyGhastEntityMixin(net.minecraft.entity.EntityType<? extends net.minecraft.entity.mob.MobEntity> entityType, net.minecraft.world.World world) {
+        super(entityType, world);
+    }
     
     /**
      * 实现数据访问器接口 - 获取数据
@@ -66,12 +71,126 @@ public abstract class HappyGhastEntityMixin implements HappyGhastDataAccessor {
     
     /**
      * 注入到实体初始化方法
-     * 在实体创建时初始化数据
+     * 在实体创建时初始化数据和AI行为
      */
     @Inject(method = "<init>", at = @At("RETURN"))
     private void onInit(CallbackInfo ci) {
         // 初始化快乐恶魂数据
         this.ghastData = new HappyGhastData();
+        
+        // 添加跟随手持食物的玩家的AI
+        HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        this.goalSelector.add(3, new FollowPlayerWithFoodGoal(ghast, 1.0, 6.0f, 3.0f));
+    }
+    
+    /**
+     * 自定义AI Goal: 跟随手持食物的玩家
+     */
+    @Unique
+    private static class FollowPlayerWithFoodGoal extends net.minecraft.entity.ai.goal.Goal {
+        private final HappyGhastEntity ghast;
+        private PlayerEntity targetPlayer;
+        private final double speed;
+        private final float maxDistance;
+        private final float minDistance;
+        private int updateCountdown;
+        
+        public FollowPlayerWithFoodGoal(HappyGhastEntity ghast, double speed, float maxDistance, float minDistance) {
+            this.ghast = ghast;
+            this.speed = speed;
+            this.maxDistance = maxDistance;
+            this.minDistance = minDistance;
+            this.setControls(java.util.EnumSet.of(Control.MOVE, Control.LOOK));
+        }
+        
+        @Override
+        public boolean canStart() {
+            // 查找附近手持食物的玩家
+            this.targetPlayer = this.ghast.getEntityWorld().getClosestPlayer(
+                this.ghast,
+                this.maxDistance
+            );
+            
+            if (this.targetPlayer == null) {
+                return false;
+            }
+            
+            // 检查玩家是否手持食物或雪球
+            ItemStack mainHand = this.targetPlayer.getMainHandStack();
+            ItemStack offHand = this.targetPlayer.getOffHandStack();
+            
+            return isFood(mainHand) || isFood(offHand);
+        }
+        
+        @Override
+        public boolean shouldContinue() {
+            if (this.targetPlayer == null || !this.targetPlayer.isAlive()) {
+                return false;
+            }
+            
+            // 检查距离
+            double distance = this.ghast.squaredDistanceTo(this.targetPlayer);
+            if (distance > (this.maxDistance * this.maxDistance)) {
+                return false;
+            }
+            
+            // 检查玩家是否还在手持食物
+            ItemStack mainHand = this.targetPlayer.getMainHandStack();
+            ItemStack offHand = this.targetPlayer.getOffHandStack();
+            
+            return isFood(mainHand) || isFood(offHand);
+        }
+        
+        @Override
+        public void start() {
+            this.updateCountdown = 0;
+        }
+        
+        @Override
+        public void stop() {
+            this.targetPlayer = null;
+        }
+        
+        @Override
+        public void tick() {
+            if (this.targetPlayer == null) {
+                return;
+            }
+            
+            // 看向玩家
+            this.ghast.getLookControl().lookAt(this.targetPlayer, 10.0f, this.ghast.getMaxLookPitchChange());
+            
+            // 更新移动目标
+            if (--this.updateCountdown <= 0) {
+                this.updateCountdown = 10;
+                double distance = this.ghast.squaredDistanceTo(this.targetPlayer);
+                
+                // 如果距离大于最小距离，移动靠近玩家
+                if (distance > (this.minDistance * this.minDistance)) {
+                    this.ghast.getNavigation().startMovingTo(this.targetPlayer, this.speed);
+                } else {
+                    // 距离足够近，停止移动
+                    this.ghast.getNavigation().stop();
+                }
+            }
+        }
+        
+        /**
+         * 检查物品是否为食物或雪球
+         */
+        private boolean isFood(ItemStack stack) {
+            if (stack.isEmpty()) {
+                return false;
+            }
+            
+            // 检查是否为雪球
+            if (stack.isOf(net.minecraft.item.Items.SNOWBALL)) {
+                return true;
+            }
+            
+            // 检查是否为食物
+            return stack.getItem().getComponents().contains(net.minecraft.component.DataComponentTypes.FOOD);
+        }
     }
     
     /**

@@ -55,11 +55,11 @@ public class GhastConfig {
      */
     public static class FoodConfig {
         public float snowballHunger = 50.0f;      // 雪球恢复饱食度
-        public int snowballExp = 30;              // 雪球给予经验
+        public int snowballExp = 10;              // 雪球给予经验（等级1基准）
         public float favoriteHunger = 80.0f;      // 最喜欢食物恢复饱食度
-        public int favoriteExp = 50;              // 最喜欢食物给予经验
+        public int favoriteExp = 20;              // 最喜欢食物给予经验（等级1基准）
         public float defaultHunger = 12.0f;       // 默认食物恢复饱食度
-        public int defaultExp = 8;                // 默认食物给予经验
+        public int defaultExp = 5;                // 默认食物给予经验（等级1基准）
     }
     
     /**

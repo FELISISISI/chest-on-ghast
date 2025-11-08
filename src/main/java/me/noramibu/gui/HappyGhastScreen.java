@@ -1,24 +1,31 @@
 package me.noramibu.gui;
 
+import me.noramibu.accessor.HappyGhastDataAccessor;
+import me.noramibu.data.HappyGhastData;
 import me.noramibu.network.SyncGhastDataPayload;
+import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.entity.Entity;
+import net.minecraft.entity.passive.HappyGhastEntity;
 import net.minecraft.text.Text;
 import java.util.List;
 
 public class HappyGhastScreen extends Screen {
-    private final int level;
-    private final float currentHealth;
-    private final float maxHealth;
-    private final float hunger;
-    private final float maxHunger;
-    private final int experience;
-    private final int expToNext;
+    private final int entityId;
+    private int level;
+    private float currentHealth;
+    private float maxHealth;
+    private float hunger;
+    private float maxHunger;
+    private int experience;
+    private int expToNext;
     private final boolean isCreative;
     private final List<String> favoriteFoods;
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
+        this.entityId = payload.entityId();
         this.level = payload.level();
         this.currentHealth = payload.currentHealth();
         this.maxHealth = payload.maxHealth();
@@ -28,6 +35,43 @@ public class HappyGhastScreen extends Screen {
         this.expToNext = payload.expToNext();
         this.isCreative = payload.isCreative();
         this.favoriteFoods = payload.favoriteFoods();
+    }
+    
+    /**
+     * 每tick更新实时数据
+     */
+    @Override
+    public void tick() {
+        super.tick();
+        updateData();
+    }
+    
+    /**
+     * 从实体更新数据
+     */
+    private void updateData() {
+        if (this.client == null || this.client.world == null) {
+            return;
+        }
+        
+        Entity entity = this.client.world.getEntityById(this.entityId);
+        if (entity instanceof HappyGhastEntity ghast) {
+            // 更新血量
+            this.currentHealth = ghast.getHealth();
+            
+            // 从accessor获取数据
+            if (ghast instanceof HappyGhastDataAccessor accessor) {
+                HappyGhastData data = accessor.getGhastData();
+                if (data != null) {
+                    this.level = data.getLevel();
+                    this.hunger = data.getHunger();
+                    this.maxHunger = data.getMaxHunger();
+                    this.experience = data.getExperience();
+                    this.expToNext = data.getExpToNextLevel();
+                    this.maxHealth = data.getMaxHealth();
+                }
+            }
+        }
     }
     
     @Override
@@ -93,23 +137,21 @@ public class HappyGhastScreen extends Screen {
         int closeHintWidth = this.textRenderer.getWidth(closeHint);
         context.drawText(this.textRenderer, closeHint, centerX - closeHintWidth / 2, hintY, 0xFF888888, false);
         
-        // 如果是创造模式，显示最喜欢的食物
+        // 如果是创造模式，在左下角低调显示最喜欢的食物
         if (isCreative && favoriteFoods != null && !favoriteFoods.isEmpty()) {
-            int foodY = hintY + 25;
+            int leftMargin = 10;
+            int bottomMargin = this.height - 60;
             
-            // 标题
-            Text favTitle = Text.translatable("gui.chest-on-ghast.favorite_foods");
-            int favTitleWidth = this.textRenderer.getWidth(favTitle);
-            context.drawText(this.textRenderer, favTitle, centerX - favTitleWidth / 2, foodY, 0xFFFFD700, false);
+            // 标题（小字体，半透明）
+            Text favTitle = Text.translatable("gui.chest-on-ghast.favorite_foods_hint");
+            context.drawText(this.textRenderer, favTitle, leftMargin, bottomMargin, 0x88FFFFFF, false);
             
-            // 列出三个最喜欢的食物
+            // 列出三个最喜欢的食物（使用物品的翻译名称）
             for (int i = 0; i < favoriteFoods.size() && i < 3; i++) {
                 String foodId = favoriteFoods.get(i);
-                // 提取物品名称（去掉minecraft:前缀）
-                String foodName = foodId.replace("minecraft:", "");
-                Text foodText = Text.literal("❤ " + foodName);
-                int foodWidth = this.textRenderer.getWidth(foodText);
-                context.drawText(this.textRenderer, foodText, centerX - foodWidth / 2, foodY + 15 + i * 12, 0xFFFF69B4, false);
+                // 使用Minecraft的翻译系统获取物品名称
+                Text foodText = Text.translatable("item." + foodId.replace(":", "."));
+                context.drawText(this.textRenderer, foodText, leftMargin + 5, bottomMargin + 12 + i * 10, 0x88FFAA88, false);
             }
         }
     }
