@@ -65,14 +65,14 @@ public class HappyGhastScreen extends Screen {
      */
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 渲染暗淡的背景（使用Minecraft风格）
-        super.render(context, mouseX, mouseY, delta);
+        // 先渲染暗淡的背景层（手动绘制，避免模糊冲突）
+        context.fill(0, 0, this.width, this.height, 0xC0101010);
         
         // 计算GUI中心位置
         int guiX = (this.width - GUI_WIDTH) / 2;
         int guiY = (this.height - GUI_HEIGHT) / 2;
         
-        // 绘制Minecraft官方风格的GUI背景
+        // 绘制Minecraft官方风格的GUI背景面板
         renderMinecraftStyleBackground(context, guiX, guiY);
         
         // 绘制标题
@@ -89,6 +89,9 @@ public class HappyGhastScreen extends Screen {
         
         // 绘制经验条
         renderExpBar(context, guiX + 10, guiY + 120);
+        
+        // 最后调用父类的render方法（渲染子组件和鼠标悬浮提示）
+        super.render(context, mouseX, mouseY, delta);
     }
     
     /**
