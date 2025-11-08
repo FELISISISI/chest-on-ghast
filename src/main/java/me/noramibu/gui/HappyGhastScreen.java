@@ -42,24 +42,27 @@ public class HappyGhastScreen extends Screen {
     
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        // 暗淡背景
+        // 调用父类的render方法，处理默认的背景和组件渲染
+        super.render(context, mouseX, mouseY, delta);
+        
+        // 绘制半透明暗淡背景
         context.fill(0, 0, this.width, this.height, 0xC0101010);
         
         // GUI背景面板
         context.fill(guiX, guiY, guiX + GUI_WIDTH, guiY + GUI_HEIGHT, 0xFFC6C6C6);
         
-        // 边框
+        // 绘制3D边框效果（模拟旧版Minecraft GUI风格）
+        // 深色边框（左上）
         context.fill(guiX, guiY, guiX + GUI_WIDTH, guiY + 1, 0xFF373737);
         context.fill(guiX, guiY + 1, guiX + 1, guiY + GUI_HEIGHT, 0xFF373737);
+        // 亮色边框（右下）
         context.fill(guiX, guiY + GUI_HEIGHT - 1, guiX + GUI_WIDTH, guiY + GUI_HEIGHT, 0xFFFFFFFF);
         context.fill(guiX + GUI_WIDTH - 1, guiY, guiX + GUI_WIDTH, guiY + GUI_HEIGHT, 0xFFFFFFFF);
+        // 内部阴影
         context.fill(guiX + 1, guiY + 1, guiX + GUI_WIDTH - 1, guiY + 2, 0xFF8B8B8B);
         context.fill(guiX + 1, guiY + 1, guiX + 2, guiY + GUI_HEIGHT - 1, 0xFF8B8B8B);
         
-        // 父类render
-        super.render(context, mouseX, mouseY, delta);
-        
-        // === 文字和进度条（关键：在super.render()之后）===
+        // === 渲染所有文字和进度条 ===
         int x = guiX + 10;
         int y = guiY + 8;
         
