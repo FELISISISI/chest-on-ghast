@@ -63,10 +63,16 @@ public class EnchantmentHelper {
      * 发射单个火球
      */
     private static void shootSingleFireball(HappyGhastEntity ghast, Vec3d direction, int fireballPower) {
+        // 只在服务端创建火球（避免重复）
+        if (!(ghast.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld)) {
+            return;
+        }
+        
         // 归一化方向向量
         Vec3d normalizedDir = direction.normalize();
         
         // 创建火球实体
+        // 注意：fireballPower是爆炸强度，原版恶魂使用1，但这里我们允许更高的值
         FireballEntity fireball = new FireballEntity(
             ghast.getEntityWorld(),
             ghast,
@@ -81,7 +87,10 @@ public class EnchantmentHelper {
         fireball.setPosition(spawnX, spawnY, spawnZ);
         
         // 生成火球
-        ghast.getEntityWorld().spawnEntity(fireball);
+        boolean spawned = ghast.getEntityWorld().spawnEntity(fireball);
+        
+        // 调试日志
+        // System.out.println("[EnchantmentHelper] 火球生成: " + spawned + ", Power: " + fireballPower + ", Pos: " + spawnX + "," + spawnY + "," + spawnZ);
         
         // 检查穿透追踪附魔（注意：此附魔功能需要额外的Mixin实现）
         int piercingLevel = getEnchantmentLevel(ghast, FireballEnchantment.PIERCING);
@@ -93,7 +102,9 @@ public class EnchantmentHelper {
         }
         
         // 如果恶魂等级>=3，追踪火球用于效果云生成
-        trackFireballForEffectCloud(ghast, fireball);
+        if (spawned) {
+            trackFireballForEffectCloud(ghast, fireball);
+        }
         
         // 播放音效
         ghast.playSound(SoundEvents.ENTITY_GHAST_SHOOT, 10.0f, 
@@ -118,6 +129,11 @@ public class EnchantmentHelper {
      */
     private static void shootMultipleFireballs(HappyGhastEntity ghast, Vec3d direction, 
                                               int fireballPower, int count) {
+        // 只在服务端创建火球（避免重复）
+        if (!(ghast.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld)) {
+            return;
+        }
+        
         // 归一化方向向量
         Vec3d normalizedDir = direction.normalize();
         
@@ -152,10 +168,12 @@ public class EnchantmentHelper {
             fireball.setPosition(spawnX, spawnY, spawnZ);
             
             // 生成火球
-            ghast.getEntityWorld().spawnEntity(fireball);
+            boolean spawned = ghast.getEntityWorld().spawnEntity(fireball);
             
             // 追踪每个火球用于效果云生成
-            trackFireballForEffectCloud(ghast, fireball);
+            if (spawned) {
+                trackFireballForEffectCloud(ghast, fireball);
+            }
         }
         
         // 播放音效（音调稍高以示区别）

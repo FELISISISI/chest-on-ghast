@@ -84,11 +84,17 @@ public class AttackHostilesGoal extends Goal {
         
         // 如果距离合适且冷却完成，发射火球
         if (distance <= (ATTACK_RANGE * ATTACK_RANGE) && this.fireballCooldown <= 0) {
-            shootFireball();
-            
-            // 根据当前等级获取冷却时间
-            int currentLevel = this.dataAccessor.getGhastData().getLevel();
-            this.fireballCooldown = LevelConfig.getAttackCooldown(currentLevel);
+            // 只在服务端执行（避免客户端重复发射）
+            if (this.ghast.getEntityWorld() instanceof net.minecraft.server.world.ServerWorld) {
+                shootFireball();
+                
+                // 根据当前等级获取冷却时间
+                int currentLevel = this.dataAccessor.getGhastData().getLevel();
+                this.fireballCooldown = LevelConfig.getAttackCooldown(currentLevel);
+                
+                // 调试日志
+                // System.out.println("[AttackHostilesGoal] 发射火球！冷却时间：" + this.fireballCooldown + " ticks");
+            }
         }
     }
     
