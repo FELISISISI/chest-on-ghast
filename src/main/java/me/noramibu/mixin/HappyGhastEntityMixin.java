@@ -129,11 +129,16 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 添加AI行为
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         
-        // 优先级1：攻击附近的敌对生物（保护玩家）
-        this.goalSelector.add(1, new AttackHostilesGoal(ghast));
-        
-        // 优先级3：跟随手持食物的玩家
-        this.goalSelector.add(3, new FollowPlayerWithFoodGoal(ghast, 1.0, 6.0f, 3.0f));
+        // 关键修复：只在服务端添加AI Goal
+        // AI Goal 只应该在服务端运行，客户端只是渲染
+        // 注意：在构造函数中world可能为null，所以要检查
+        if (ghast.getEntityWorld() != null && ghast.getEntityWorld() instanceof ServerWorld) {
+            // 优先级1：攻击附近的敌对生物（保护玩家）
+            this.goalSelector.add(1, new AttackHostilesGoal(ghast));
+            
+            // 优先级3：跟随手持食物的玩家
+            this.goalSelector.add(3, new FollowPlayerWithFoodGoal(ghast, 1.0, 6.0f, 3.0f));
+        }
     }
     
     /**
