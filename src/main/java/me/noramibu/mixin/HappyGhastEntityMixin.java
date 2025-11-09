@@ -265,7 +265,8 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                         data.getMaxHunger(),
                         data.getExpToNextLevel(),
                         serverPlayer.isCreative(),  // 玩家创造模式状态
-                        data.getFavoriteFoods()     // 最喜欢的食物列表
+                        data.getFavoriteFoods(),     // 最喜欢的食物列表
+                        data.getCustomName() != null ? data.getCustomName() : ""  // 自定义名字
                     );
                     
                     ServerPlayNetworking.send(serverPlayer, syncPayload);

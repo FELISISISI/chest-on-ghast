@@ -29,6 +29,9 @@ public class HappyGhastData {
     // 最喜欢的食物列表（3个）
     private List<String> favoriteFoods;
     
+    // 自定义名字
+    private String customName;
+    
     // 所有可能的食物列表
     private static final String[] ALL_FOODS = {
         "minecraft:apple", "minecraft:golden_apple", "minecraft:enchanted_golden_apple",
@@ -78,6 +81,10 @@ public class HappyGhastData {
     public int getExperience() { return experience; }
     public float getHunger() { return hunger; }
     public List<String> getFavoriteFoods() { return favoriteFoods; }
+    public String getCustomName() { return customName; }
+    
+    // Setter方法
+    public void setCustomName(String name) { this.customName = name; }
     
     /**
      * 检查某个食物是否为最喜欢的食物
@@ -236,6 +243,11 @@ public class HappyGhastData {
             }
             nbt.put("FavoriteFoods", foodList);
         }
+        
+        // 保存自定义名字
+        if (customName != null && !customName.isEmpty()) {
+            nbt.putString("CustomName", customName);
+        }
     }
     
     /**
@@ -267,6 +279,11 @@ public class HappyGhastData {
             data.favoriteFoods = data.generateRandomFavoriteFoods();
         }
         
+        // 读取自定义名字
+        if (nbt.contains("CustomName")) {
+            data.customName = nbt.getString("CustomName").orElse("");
+        }
+        
         return data;
     }
     
@@ -278,6 +295,7 @@ public class HappyGhastData {
         HappyGhastData copy = new HappyGhastData(this.level, this.experience, this.hunger);
         copy.lastHungerDecayTime = this.lastHungerDecayTime;
         copy.favoriteFoods = new ArrayList<>(this.favoriteFoods);
+        copy.customName = this.customName;
         return copy;
     }
 }

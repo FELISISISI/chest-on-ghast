@@ -22,7 +22,8 @@ public record SyncGhastDataPayload(
     float maxHunger,       // 最大饱食度
     int expToNext,         // 升级所需经验
     boolean isCreative,    // 玩家是否为创造模式
-    List<String> favoriteFoods  // 最喜欢的食物（创造模式下显示）
+    List<String> favoriteFoods,  // 最喜欢的食物（创造模式下显示）
+    String customName      // 自定义名字
 ) implements CustomPayload {
     
     // 网络包标识符
@@ -49,6 +50,9 @@ public record SyncGhastDataPayload(
                 for (String food : value.favoriteFoods) {
                     buf.writeString(food);
                 }
+                
+                // 写入自定义名字
+                buf.writeString(value.customName != null ? value.customName : "");
             },
             buf -> {
                 // 解码器：按顺序读取所有数据
@@ -69,10 +73,13 @@ public record SyncGhastDataPayload(
                     favoriteFoods.add(buf.readString());
                 }
                 
+                // 读取自定义名字
+                String customName = buf.readString();
+                
                 return new SyncGhastDataPayload(
                     entityId, level, experience, hunger,
                     maxHealth, currentHealth, maxHunger, expToNext,
-                    isCreative, favoriteFoods
+                    isCreative, favoriteFoods, customName
                 );
             }
         );

@@ -1,10 +1,12 @@
 package me.noramibu.gui;
 
+import me.noramibu.network.RenameGhastPayload;
 import me.noramibu.network.RequestGhastDataPayload;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import java.util.List;
 
@@ -21,6 +23,8 @@ public class HappyGhastScreen extends Screen {
     private final List<String> favoriteFoods;
     
     private int tickCounter = 0;  // 用于控制请求频率
+    private TextFieldWidget nameField;  // 名字输入框
+    private String customName;  // 自定义名字
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
@@ -28,6 +32,42 @@ public class HappyGhastScreen extends Screen {
         updateFromPayload(payload);
         this.isCreative = payload.isCreative();
         this.favoriteFoods = payload.favoriteFoods();
+        this.customName = "";  // 初始为空，后续会从服务器同步
+    }
+    
+    /**
+     * 初始化GUI组件
+     */
+    @Override
+    protected void init() {
+        super.init();
+        
+        // 创建名字输入框
+        int centerX = this.width / 2;
+        int topY = 18;
+        int fieldWidth = 150;
+        
+        this.nameField = new TextFieldWidget(
+            this.textRenderer,
+            centerX - fieldWidth / 2,
+            topY,
+            fieldWidth,
+            16,
+            Text.literal("")
+        );
+        
+        // 设置输入框属性
+        this.nameField.setMaxLength(32);
+        this.nameField.setText(this.customName.isEmpty() ? 
+            Text.translatable("gui.chest-on-ghast.happy_ghast").getString() : this.customName);
+        this.nameField.setPlaceholder(Text.translatable("gui.chest-on-ghast.name_placeholder"));
+        
+        // 当输入框内容改变时，存储临时名字
+        this.nameField.setChangedListener(text -> {
+            // 什么都不做，等待失去焦点时发送
+        });
+        
+        this.addDrawableChild(this.nameField);
     }
     
     /**
@@ -41,7 +81,29 @@ public class HappyGhastScreen extends Screen {
         this.maxHunger = payload.maxHunger();
         this.experience = payload.experience();
         this.expToNext = payload.expToNext();
+        
+        // 更新自定义名字
+        String newCustomName = payload.customName();
+        if (newCustomName != null && !newCustomName.equals(this.customName)) {
+            updateCustomName(newCustomName);
+        }
     }
+    
+    /**
+     * 更新自定义名字
+     */
+    public void updateCustomName(String name) {
+        this.customName = name;
+        if (this.nameField != null) {
+            this.nameField.setText(name.isEmpty() ? 
+                Text.translatable("gui.chest-on-ghast.happy_ghast").getString() : name);
+        }
+    }
+    
+    /**
+     * 处理失去焦点时的改名
+     */
+    private boolean wasFocused = false;
     
     /**
      * 每tick更新，定期向服务器请求最新数据
@@ -49,6 +111,20 @@ public class HappyGhastScreen extends Screen {
     @Override
     public void tick() {
         super.tick();
+        
+        // 检测焦点状态变化，失去焦点时发送改名请求
+        if (this.nameField != null) {
+            boolean currentlyFocused = this.nameField.isFocused();
+            if (wasFocused && !currentlyFocused) {
+                // 刚刚失去焦点
+                String newName = this.nameField.getText();
+                if (newName != null && !newName.isEmpty() && !newName.equals(this.customName)) {
+                    ClientPlayNetworking.send(new RenameGhastPayload(this.entityId, newName));
+                    this.customName = newName;
+                }
+            }
+            wasFocused = currentlyFocused;
+        }
         
         tickCounter++;
         // 每10 ticks（0.5秒）向服务器请求一次最新数据
@@ -69,18 +145,18 @@ public class HappyGhastScreen extends Screen {
         int centerX = this.width / 2;
         int topY = 20;
         
-        // 标题居中
-        Text title = Text.translatable("gui.chest-on-ghast.happy_ghast");
-        int titleWidth = this.textRenderer.getWidth(title);
-        context.drawText(this.textRenderer, title, centerX - titleWidth / 2, topY, 0xFFFFFFFF, false);
+        // 渲染名字输入框
+        if (this.nameField != null) {
+            this.nameField.render(context, mouseX, mouseY, delta);
+        }
         
-        // 等级居中
+        // 等级居中（向下移动一点，给名字输入框腾出空间）
         Text levelText = Text.translatable("gui.chest-on-ghast.level", level);
         int levelWidth = this.textRenderer.getWidth(levelText);
-        context.drawText(this.textRenderer, levelText, centerX - levelWidth / 2, topY + 15, 0xFFFFD700, false);
+        context.drawText(this.textRenderer, levelText, centerX - levelWidth / 2, topY + 22, 0xFFFFD700, false);
         
-        // 三个数据块横向排列
-        int dataY = topY + 35;
+        // 三个数据块横向排列（向下移动）
+        int dataY = topY + 42;
         int blockWidth = 100;
         int spacing = 20;
         int totalWidth = blockWidth * 3 + spacing * 2;
