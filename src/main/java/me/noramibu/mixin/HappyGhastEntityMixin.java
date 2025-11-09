@@ -101,17 +101,20 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     /**
      * 自定义AI Goal: 攻击附近的敌对生物
      * 快乐恶魂会向附近的怪物发射火球来保护玩家
+     * 火球威力和冷却时间随等级变化
      */
     @Unique
     private static class AttackHostilesGoal extends net.minecraft.entity.ai.goal.Goal {
         private final HappyGhastEntity ghast;
+        private final HappyGhastDataAccessor dataAccessor;
         private LivingEntity targetHostile;
         private int fireballCooldown;
         private static final double ATTACK_RANGE = 16.0; // 攻击范围16格
-        private static final int FIREBALL_COOLDOWN = 40; // 火球冷却时间2秒（40 ticks）
         
         public AttackHostilesGoal(HappyGhastEntity ghast) {
             this.ghast = ghast;
+            // 获取数据访问器引用，用于读取当前等级
+            this.dataAccessor = (HappyGhastDataAccessor) ghast;
             this.fireballCooldown = 0;
             this.setControls(java.util.EnumSet.of(Control.MOVE, Control.LOOK));
         }
@@ -167,7 +170,10 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             // 如果距离合适且冷却完成，发射火球
             if (distance <= (ATTACK_RANGE * ATTACK_RANGE) && this.fireballCooldown <= 0) {
                 shootFireball();
-                this.fireballCooldown = FIREBALL_COOLDOWN;
+                
+                // 根据当前等级获取冷却时间
+                int currentLevel = this.dataAccessor.getGhastData().getLevel();
+                this.fireballCooldown = LevelConfig.getAttackCooldown(currentLevel);
             }
         }
         
@@ -208,11 +214,16 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         /**
          * 发射火球攻击目标
          * 使用类似原版恶魂的火球发射逻辑
+         * 火球威力根据当前等级从配置文件读取
          */
         private void shootFireball() {
             if (this.targetHostile == null) {
                 return;
             }
+            
+            // 获取当前等级和对应的火球威力
+            int currentLevel = this.dataAccessor.getGhastData().getLevel();
+            int fireballPower = LevelConfig.getFireballPower(currentLevel);
             
             // 计算发射方向
             double targetX = this.targetHostile.getX();
@@ -223,12 +234,12 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             double deltaY = targetY - this.ghast.getY();
             double deltaZ = targetZ - this.ghast.getZ();
             
-            // 创建火球实体
+            // 创建火球实体，使用配置的威力值
             FireballEntity fireball = new FireballEntity(
                 this.ghast.getEntityWorld(),
                 this.ghast,
                 new Vec3d(deltaX, deltaY, deltaZ),
-                1 // 火球威力（爆炸强度）
+                fireballPower // 火球威力（爆炸强度），随等级提升
             );
             
             // 设置火球位置（从快乐恶魂中心发射）
