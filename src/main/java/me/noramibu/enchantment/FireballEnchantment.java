@@ -42,7 +42,15 @@ public enum FireballEnchantment {
      * 效果云持续时间翻倍
      * I级=1.5倍，II级=2倍，III级=3倍
      */
-    DURATION("duration", "持久", 3);
+    DURATION("duration", "持久", 3),
+    
+    /**
+     * 引力奇点附魔
+     * 火球不爆炸，而是生成引力奇点，将周围实体拉向中心
+     * 等级越高，引力范围和持续时间越长
+     * I级=5格范围/3秒，II级=8格范围/5秒，III级=12格范围/8秒
+     */
+    GRAVITY("gravity", "引力奇点", 3);
     
     // 附魔ID（用于配置文件和NBT存储）
     private final String id;

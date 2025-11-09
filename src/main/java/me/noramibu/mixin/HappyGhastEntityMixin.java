@@ -71,6 +71,14 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     @Unique
     private int charmTickCounter = 0;
     
+    // 用于追踪引力奇点（存储效果云ID和引力等级）
+    @Unique
+    private final java.util.Map<Integer, Integer> gravityClouds = new java.util.HashMap<>();
+    
+    // 引力奇点的处理间隔（ticks）
+    @Unique
+    private int gravityTickCounter = 0;
+    
     // 这个构造函数仅为了满足编译，永远不会被调用
     protected HappyGhastEntityMixin(net.minecraft.entity.EntityType<? extends net.minecraft.entity.mob.MobEntity> entityType, net.minecraft.world.World world) {
         super(entityType, world);
@@ -422,6 +430,13 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 processCharmClouds(ghast);
                 charmTickCounter = 0;
             }
+            
+            // 处理引力奇点（每2 ticks检查一次，更频繁以保证流畅拉取）
+            gravityTickCounter++;
+            if (gravityTickCounter >= 2) {
+                processGravityClouds(ghast);
+                gravityTickCounter = 0;
+            }
         }
     }
     
@@ -742,13 +757,22 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             me.noramibu.enchantment.FireballEnchantment.FREEZING
         );
         
-        // 检查魅惑附魔（优先显示）
+        // 检查魅惑附魔
         int charmLevel = me.noramibu.enchantment.EnchantmentHelper.getEnchantmentLevel(
             ghast, 
             me.noramibu.enchantment.FireballEnchantment.CHARM
         );
         
-        if (charmLevel > 0) {
+        // 检查引力奇点附魔（最高优先级）
+        int gravityLevel = me.noramibu.enchantment.EnchantmentHelper.getEnchantmentLevel(
+            ghast, 
+            me.noramibu.enchantment.FireballEnchantment.GRAVITY
+        );
+        
+        if (gravityLevel > 0) {
+            // 有引力奇点附魔，使用黑洞粒子（黑色传送门粒子）
+            cloud.setParticleType(net.minecraft.particle.ParticleTypes.PORTAL);
+        } else if (charmLevel > 0) {
             // 有魅惑附魔，使用魔法粒子（紫色）
             cloud.setParticleType(net.minecraft.particle.ParticleTypes.WITCH);
         } else if (freezingLevel > 0) {
@@ -774,7 +798,15 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             addFreezingEffect(cloud, freezingLevel);
         }
         
-        // 如果有魅惑附魔，追踪这个效果云（魅惑等级已在上面检查过）
+        // 如果有引力奇点附魔，追踪这个效果云（最高优先级）
+        if (gravityLevel > 0) {
+            // 引力奇点不需要任何状态效果，只需要引力拉取
+            world.spawnEntity(cloud);
+            gravityClouds.put(cloud.getId(), gravityLevel);
+            return;  // 提前返回，引力奇点不需要其他效果
+        }
+        
+        // 如果有魅惑附魔，追踪这个效果云
         if (charmLevel > 0) {
             // 在生成效果云后追踪它
             world.spawnEntity(cloud);
@@ -1029,6 +1061,195 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                     0.0  // 速度
                 );
             }
+        }
+    }
+    
+    /**
+     * 处理所有引力奇点
+     * 检查追踪的奇点并应用引力拉取效果
+     */
+    @Unique
+    private void processGravityClouds(HappyGhastEntity ghast) {
+        if (gravityClouds.isEmpty()) return;
+        
+        // 定期清理过期数据（每200 ticks / 10秒）
+        if (tickCounter % 200 == 0 && gravityClouds.size() > 30) {
+            // 如果Map过大，清理所有数据以防止内存泄漏
+            gravityClouds.clear();
+            return;
+        }
+        
+        // 检查每个追踪的引力奇点
+        java.util.Iterator<java.util.Map.Entry<Integer, Integer>> iterator = gravityClouds.entrySet().iterator();
+        while (iterator.hasNext()) {
+            java.util.Map.Entry<Integer, Integer> entry = iterator.next();
+            int cloudId = entry.getKey();
+            int gravityLevel = entry.getValue();
+            
+            // 尝试获取效果云实体
+            Entity entity = ghast.getEntityWorld().getEntityById(cloudId);
+            
+            if (entity instanceof net.minecraft.entity.AreaEffectCloudEntity cloud) {
+                // 效果云还存在，应用引力拉取效果
+                applyGravityEffect(ghast.getEntityWorld(), cloud, gravityLevel);
+            } else {
+                // 效果云已消失，移除追踪
+                iterator.remove();
+            }
+        }
+    }
+    
+    /**
+     * 应用引力效果：将周围实体拉向奇点中心
+     * @param world 世界
+     * @param cloud 效果云实体（作为奇点中心）
+     * @param gravityLevel 引力附魔等级
+     */
+    @Unique
+    private void applyGravityEffect(net.minecraft.world.World world, net.minecraft.entity.AreaEffectCloudEntity cloud, int gravityLevel) {
+        // 获取奇点位置
+        Vec3d singularityPos = new Vec3d(cloud.getX(), cloud.getY(), cloud.getZ());
+        
+        // 根据附魔等级确定引力参数
+        double pullRadius;    // 引力范围
+        double pullStrength;  // 引力强度
+        
+        switch (gravityLevel) {
+            case 1:
+                pullRadius = 5.0;    // 5格范围
+                pullStrength = 0.15;  // 较弱引力
+                break;
+            case 2:
+                pullRadius = 8.0;    // 8格范围
+                pullStrength = 0.25;  // 中等引力
+                break;
+            case 3:
+                pullRadius = 12.0;   // 12格范围
+                pullStrength = 0.4;   // 强力引力
+                break;
+            default:
+                pullRadius = 5.0;
+                pullStrength = 0.15;
+        }
+        
+        // 搜索范围
+        Box searchBox = new Box(
+            singularityPos.x - pullRadius, singularityPos.y - pullRadius, singularityPos.z - pullRadius,
+            singularityPos.x + pullRadius, singularityPos.y + pullRadius, singularityPos.z + pullRadius
+        );
+        
+        // 获取范围内的所有敌对生物
+        List<LivingEntity> entities = world.getEntitiesByClass(
+            LivingEntity.class,
+            searchBox,
+            entity -> entity.isAlive() && !entity.isRemoved() && entity instanceof HostileEntity
+        );
+        
+        // 限制处理的实体数量，防止性能问题
+        int maxProcessed = Math.min(entities.size(), 30);  // 最多处理30个实体
+        
+        // 只在服务端执行
+        if (!(world instanceof net.minecraft.server.world.ServerWorld serverWorld)) {
+            return;
+        }
+        
+        // 对每个实体应用引力
+        for (int i = 0; i < maxProcessed; i++) {
+            LivingEntity entity = entities.get(i);
+            
+            // 计算从实体到奇点的向量
+            Vec3d entityPos = new Vec3d(entity.getX(), entity.getY(), entity.getZ());
+            Vec3d toSingularity = singularityPos.subtract(entityPos);
+            double distance = toSingularity.length();
+            
+            // 距离越近，引力越强（平方反比）
+            if (distance > 0.5) {  // 避免除零和过度接近
+                // 归一化方向向量
+                Vec3d pullDirection = toSingularity.normalize();
+                
+                // 计算引力强度（距离越近越强）
+                double distanceFactor = 1.0 - (distance / pullRadius);  // 0到1
+                double actualPullStrength = pullStrength * distanceFactor * distanceFactor;  // 平方衰减
+                
+                // 应用速度（拉向中心）
+                Vec3d pullVelocity = pullDirection.multiply(actualPullStrength);
+                Vec3d currentVelocity = entity.getVelocity();
+                Vec3d newVelocity = currentVelocity.add(pullVelocity);
+                
+                // 限制最大速度，防止实体被拉得太快
+                double maxSpeed = 0.8;
+                if (newVelocity.length() > maxSpeed) {
+                    newVelocity = newVelocity.normalize().multiply(maxSpeed);
+                }
+                
+                entity.setVelocity(newVelocity);
+                entity.velocityModified = true;
+            }
+        }
+        
+        // 获取范围内的掉落物（物品实体）
+        List<net.minecraft.entity.ItemEntity> items = world.getEntitiesByClass(
+            net.minecraft.entity.ItemEntity.class,
+            searchBox,
+            item -> !item.isRemoved()
+        );
+        
+        // 限制处理的物品数量
+        int maxItems = Math.min(items.size(), 50);
+        
+        // 拉取掉落物
+        for (int i = 0; i < maxItems; i++) {
+            net.minecraft.entity.ItemEntity item = items.get(i);
+            
+            Vec3d itemPos = new Vec3d(item.getX(), item.getY(), item.getZ());
+            Vec3d toSingularity = singularityPos.subtract(itemPos);
+            double distance = toSingularity.length();
+            
+            if (distance > 0.5) {
+                Vec3d pullDirection = toSingularity.normalize();
+                double distanceFactor = 1.0 - (distance / pullRadius);
+                double actualPullStrength = pullStrength * 0.5 * distanceFactor;  // 物品拉力稍弱
+                
+                Vec3d pullVelocity = pullDirection.multiply(actualPullStrength);
+                Vec3d currentVelocity = item.getVelocity();
+                Vec3d newVelocity = currentVelocity.add(pullVelocity);
+                
+                item.setVelocity(newVelocity);
+                item.velocityModified = true;
+            }
+        }
+        
+        // 生成额外的黑洞粒子效果
+        if (world.getTime() % 2 == 0) {  // 每2 ticks生成一次，减少性能消耗
+            // 在奇点周围生成旋转的传送门粒子
+            for (int i = 0; i < 5; i++) {
+                double angle = (world.getTime() + i * 72) * 0.1;  // 旋转角度
+                double radius = 1.0 + Math.sin(world.getTime() * 0.05) * 0.3;  // 脉动半径
+                
+                double offsetX = Math.cos(angle) * radius;
+                double offsetZ = Math.sin(angle) * radius;
+                
+                serverWorld.spawnParticles(
+                    net.minecraft.particle.ParticleTypes.PORTAL,
+                    singularityPos.x + offsetX,
+                    singularityPos.y + 0.5,
+                    singularityPos.z + offsetZ,
+                    1,  // 粒子数量
+                    0.0, 0.1, 0.0,  // 偏移
+                    0.1  // 速度
+                );
+            }
+            
+            // 中心暗色粒子（烟雾）
+            serverWorld.spawnParticles(
+                net.minecraft.particle.ParticleTypes.LARGE_SMOKE,
+                singularityPos.x,
+                singularityPos.y + 0.5,
+                singularityPos.z,
+                2,  // 粒子数量
+                0.1, 0.1, 0.1,  // 偏移
+                0.0  // 速度
+            );
         }
     }
 }

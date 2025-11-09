@@ -47,6 +47,10 @@
   "enchantment.chest-on-ghast.duration.desc": "Effect cloud lasts longer",
   "enchantment.chest-on-ghast.duration.effect": "Duration %s",
   
+  "enchantment.chest-on-ghast.gravity": "Gravity Singularity",
+  "enchantment.chest-on-ghast.gravity.desc": "Creates gravity singularity that pulls entities to center",
+  "enchantment.chest-on-ghast.gravity.effect": "Range %s blocks",
+  
   "gui.chest-on-ghast.enchantments": "Fireball Enchantments",
   "gui.chest-on-ghast.enchantment.edit": "Edit Enchantments",
   "gui.chest-on-ghast.enchantment.slots": "Enchantment Slots",

@@ -47,6 +47,10 @@
   "enchantment.chest-on-ghast.duration.desc": "效果云持续时间倍增",
   "enchantment.chest-on-ghast.duration.effect": "持续时间 %s",
   
+  "enchantment.chest-on-ghast.gravity": "引力奇点",
+  "enchantment.chest-on-ghast.gravity.desc": "生成引力奇点，将怪物拉向中心",
+  "enchantment.chest-on-ghast.gravity.effect": "范围 %s 格",
+  
   "gui.chest-on-ghast.enchantments": "火球附魔",
   "gui.chest-on-ghast.enchantment.edit": "编辑附魔",
   "gui.chest-on-ghast.enchantment.slots": "附魔槽位",
