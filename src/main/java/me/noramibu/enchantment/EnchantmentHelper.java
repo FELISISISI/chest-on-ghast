@@ -172,8 +172,8 @@ public class EnchantmentHelper {
         // 获取水平面上的方向（忽略Y）
         double horizontalLength = Math.sqrt(direction.x * direction.x + direction.z * direction.z);
         
-        if (horizontalLength < 0.001) {
-            // 如果是垂直方向，直接返回
+        // 安全检查：如果是垂直方向或长度为0，直接返回
+        if (horizontalLength < 0.0001 || Double.isNaN(horizontalLength) || Double.isInfinite(horizontalLength)) {
             return direction;
         }
         

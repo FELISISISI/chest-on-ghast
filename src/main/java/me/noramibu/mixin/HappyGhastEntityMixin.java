@@ -380,6 +380,11 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     private void onTick(CallbackInfo ci) {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         
+        // 安全检查：确保实体和世界有效
+        if (ghast.isRemoved() || ghast.getEntityWorld() == null) {
+            return;
+        }
+        
         // 确保数据已初始化
         if (this.ghastData == null) {
             // 尝试从NBT加载数据
@@ -666,6 +671,14 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     private void checkAndSpawnEffectClouds(HappyGhastEntity ghast) {
         if (fireballLevels.isEmpty()) return;
         
+        // 定期清理过期数据（每200 ticks / 10秒）
+        if (tickCounter % 200 == 0 && fireballLevels.size() > 100) {
+            // 如果Map过大，清理所有数据以防止内存泄漏
+            fireballLevels.clear();
+            fireballPositions.clear();
+            return;
+        }
+        
         // 检查每个追踪的火球
         java.util.Iterator<java.util.Map.Entry<Integer, Integer>> iterator = fireballLevels.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -906,6 +919,13 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     private void processCharmClouds(HappyGhastEntity ghast) {
         if (charmClouds.isEmpty()) return;
         
+        // 定期清理过期数据（每200 ticks / 10秒）
+        if (tickCounter % 200 == 0 && charmClouds.size() > 50) {
+            // 如果Map过大，清理所有数据以防止内存泄漏
+            charmClouds.clear();
+            return;
+        }
+        
         // 检查每个追踪的效果云
         java.util.Iterator<java.util.Map.Entry<Integer, Integer>> iterator = charmClouds.entrySet().iterator();
         while (iterator.hasNext()) {
@@ -969,39 +989,45 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         
         // 如果范围内有2个或更多怪物，让它们互相攻击
         if (hostiles.size() >= 2) {
+            // 限制处理的怪物数量，防止性能问题
+            int maxProcessed = Math.min(hostiles.size(), 20);  // 最多处理20个怪物
+            
+            // 只在服务端执行
+            if (!(world instanceof ServerWorld serverWorld)) {
+                return;
+            }
+            
             // 让每个怪物攻击范围内的另一个随机怪物
-            for (HostileEntity attacker : hostiles) {
-                // 找到一个不是自己的目标
-                List<HostileEntity> potentialTargets = new java.util.ArrayList<>(hostiles);
-                potentialTargets.remove(attacker);
+            for (int i = 0; i < maxProcessed; i++) {
+                HostileEntity attacker = hostiles.get(i);
                 
-                if (!potentialTargets.isEmpty()) {
-                    // 随机选择一个目标
-                    HostileEntity target = potentialTargets.get(world.getRandom().nextInt(potentialTargets.size()));
-                    
-                    // 让attacker对target造成伤害
-                    // 使用mobAttack伤害源，让target认为是attacker攻击的
-                    if (world instanceof ServerWorld serverWorld) {
-                        target.damage(
-                            serverWorld,
-                            world.getDamageSources().mobAttack(attacker),
-                            damageAmount
-                        );
-                    }
-                    
-                    // 生成攻击粒子效果（愤怒粒子）
-                    if (world instanceof ServerWorld serverWorld) {
-                        serverWorld.spawnParticles(
-                            net.minecraft.particle.ParticleTypes.ANGRY_VILLAGER,
-                            attacker.getX(),
-                            attacker.getY() + attacker.getHeight() / 2,
-                            attacker.getZ(),
-                            3,  // 粒子数量
-                            0.3, 0.3, 0.3,  // 偏移
-                            0.0  // 速度
-                        );
-                    }
+                // 随机选择一个不是自己的目标（优化：直接从列表中随机选，避免创建副本）
+                int targetIndex = world.getRandom().nextInt(hostiles.size());
+                HostileEntity target = hostiles.get(targetIndex);
+                
+                // 如果选到自己，选择下一个（循环）
+                if (target == attacker) {
+                    targetIndex = (targetIndex + 1) % hostiles.size();
+                    target = hostiles.get(targetIndex);
                 }
+                
+                // 让attacker对target造成伤害
+                target.damage(
+                    serverWorld,
+                    world.getDamageSources().mobAttack(attacker),
+                    damageAmount
+                );
+                
+                // 生成攻击粒子效果（愤怒粒子）
+                serverWorld.spawnParticles(
+                    net.minecraft.particle.ParticleTypes.ANGRY_VILLAGER,
+                    attacker.getX(),
+                    attacker.getY() + attacker.getHeight() / 2,
+                    attacker.getZ(),
+                    3,  // 粒子数量
+                    0.3, 0.3, 0.3,  // 偏移
+                    0.0  // 速度
+                );
             }
         }
     }
