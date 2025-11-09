@@ -6,10 +6,14 @@ import me.noramibu.level.LevelConfig;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.entity.Entity;
 import net.minecraft.entity.EntityType;
+import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.mob.HostileEntity;
 import net.minecraft.entity.passive.HappyGhastEntity;
 import net.minecraft.entity.player.PlayerEntity;
+import net.minecraft.entity.projectile.FireballEntity;
 import net.minecraft.entity.vehicle.ChestMinecartEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -18,9 +22,12 @@ import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.Box;
+import net.minecraft.util.math.Vec3d;
 import net.minecraft.registry.Registries;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
@@ -30,9 +37,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 import net.minecraft.entity.EquipmentSlot;
 
+import java.util.Comparator;
+import java.util.List;
+
 /**
  * Mixin for HappyGhastEntity
- * 添加等级系统、喂食系统、饱食度系统和GUI交互
+ * 添加等级系统、喂食系统、饱食度系统、战斗系统和GUI交互
  * 保留原有的箱子矿车放置功能
  */
 @Mixin(HappyGhastEntity.class)
@@ -78,9 +88,163 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 初始化快乐恶魂数据
         this.ghastData = new HappyGhastData();
         
-        // 添加跟随手持食物的玩家的AI
+        // 添加AI行为
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        
+        // 优先级1：攻击附近的敌对生物（保护玩家）
+        this.goalSelector.add(1, new AttackHostilesGoal(ghast));
+        
+        // 优先级3：跟随手持食物的玩家
         this.goalSelector.add(3, new FollowPlayerWithFoodGoal(ghast, 1.0, 6.0f, 3.0f));
+    }
+    
+    /**
+     * 自定义AI Goal: 攻击附近的敌对生物
+     * 快乐恶魂会向附近的怪物发射火球来保护玩家
+     */
+    @Unique
+    private static class AttackHostilesGoal extends net.minecraft.entity.ai.goal.Goal {
+        private final HappyGhastEntity ghast;
+        private LivingEntity targetHostile;
+        private int fireballCooldown;
+        private static final double ATTACK_RANGE = 16.0; // 攻击范围16格
+        private static final int FIREBALL_COOLDOWN = 40; // 火球冷却时间2秒（40 ticks）
+        
+        public AttackHostilesGoal(HappyGhastEntity ghast) {
+            this.ghast = ghast;
+            this.fireballCooldown = 0;
+            this.setControls(java.util.EnumSet.of(Control.MOVE, Control.LOOK));
+        }
+        
+        @Override
+        public boolean canStart() {
+            // 查找附近最近的敌对生物
+            this.targetHostile = findNearestHostile();
+            return this.targetHostile != null;
+        }
+        
+        @Override
+        public boolean shouldContinue() {
+            if (this.targetHostile == null || !this.targetHostile.isAlive()) {
+                return false;
+            }
+            
+            // 检查距离，如果目标太远则停止追击
+            double distance = this.ghast.squaredDistanceTo(this.targetHostile);
+            if (distance > (ATTACK_RANGE * ATTACK_RANGE * 1.5)) { // 稍微增加一些容差
+                return false;
+            }
+            
+            return true;
+        }
+        
+        @Override
+        public void start() {
+            this.fireballCooldown = 0;
+        }
+        
+        @Override
+        public void stop() {
+            this.targetHostile = null;
+        }
+        
+        @Override
+        public void tick() {
+            if (this.targetHostile == null) {
+                return;
+            }
+            
+            // 减少冷却时间
+            if (this.fireballCooldown > 0) {
+                this.fireballCooldown--;
+            }
+            
+            double distance = this.ghast.squaredDistanceTo(this.targetHostile);
+            
+            // 看向目标
+            this.ghast.getLookControl().lookAt(this.targetHostile, 10.0f, this.ghast.getMaxLookPitchChange());
+            
+            // 如果距离合适且冷却完成，发射火球
+            if (distance <= (ATTACK_RANGE * ATTACK_RANGE) && this.fireballCooldown <= 0) {
+                shootFireball();
+                this.fireballCooldown = FIREBALL_COOLDOWN;
+            }
+        }
+        
+        /**
+         * 查找附近最近的敌对生物
+         * 优先攻击靠近玩家的怪物
+         */
+        private LivingEntity findNearestHostile() {
+            // 获取攻击范围内的所有敌对生物
+            Box searchBox = this.ghast.getBoundingBox().expand(ATTACK_RANGE);
+            List<HostileEntity> hostiles = this.ghast.getEntityWorld().getEntitiesByClass(
+                HostileEntity.class,
+                searchBox,
+                entity -> entity.isAlive() && !entity.isSpectator()
+            );
+            
+            if (hostiles.isEmpty()) {
+                return null;
+            }
+            
+            // 查找最近的玩家作为参考点
+            PlayerEntity nearestPlayer = this.ghast.getEntityWorld().getClosestPlayer(this.ghast, ATTACK_RANGE * 2);
+            
+            if (nearestPlayer != null) {
+                // 如果有玩家在附近，优先攻击靠近玩家的怪物
+                final PlayerEntity player = nearestPlayer;
+                return hostiles.stream()
+                    .min(Comparator.comparingDouble(hostile -> hostile.squaredDistanceTo(player)))
+                    .orElse(null);
+            } else {
+                // 否则攻击离快乐恶魂最近的怪物
+                return hostiles.stream()
+                    .min(Comparator.comparingDouble(hostile -> hostile.squaredDistanceTo(this.ghast)))
+                    .orElse(null);
+            }
+        }
+        
+        /**
+         * 发射火球攻击目标
+         * 使用类似原版恶魂的火球发射逻辑
+         */
+        private void shootFireball() {
+            if (this.targetHostile == null) {
+                return;
+            }
+            
+            // 计算发射方向
+            double targetX = this.targetHostile.getX();
+            double targetY = this.targetHostile.getBodyY(0.5);
+            double targetZ = this.targetHostile.getZ();
+            
+            double deltaX = targetX - this.ghast.getX();
+            double deltaY = targetY - this.ghast.getY();
+            double deltaZ = targetZ - this.ghast.getZ();
+            
+            // 创建火球实体
+            FireballEntity fireball = new FireballEntity(
+                this.ghast.getEntityWorld(),
+                this.ghast,
+                new Vec3d(deltaX, deltaY, deltaZ),
+                1 // 火球威力（爆炸强度）
+            );
+            
+            // 设置火球位置（从快乐恶魂中心发射）
+            fireball.setPosition(
+                this.ghast.getX(),
+                this.ghast.getY() + this.ghast.getHeight() / 2.0,
+                this.ghast.getZ()
+            );
+            
+            // 生成火球实体
+            this.ghast.getEntityWorld().spawnEntity(fireball);
+            
+            // 播放发射音效
+            this.ghast.playSound(SoundEvents.ENTITY_GHAST_SHOOT, 10.0f, 
+                (this.ghast.getRandom().nextFloat() - this.ghast.getRandom().nextFloat()) * 0.2f + 1.0f);
+        }
     }
     
     /**

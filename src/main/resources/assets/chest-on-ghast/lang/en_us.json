@@ -12,5 +12,7 @@
   "gui.chest-on-ghast.name_placeholder": "Click to edit name",
   "message.chest-on-ghast.level_up": "Happy Ghast leveled up to level %s!",
   "message.chest-on-ghast.fed": "Hunger +%s  EXP +%s",
-  "message.chest-on-ghast.favorite_food": "❤ Happy Ghast LOVES this food! ❤"
+  "message.chest-on-ghast.favorite_food": "❤ Happy Ghast LOVES this food! ❤",
+  "message.chest-on-ghast.combat_mode": "Happy Ghast entered combat mode!",
+  "message.chest-on-ghast.protecting": "Happy Ghast is protecting you!"
 }
