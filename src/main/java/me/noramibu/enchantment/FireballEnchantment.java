@@ -50,7 +50,15 @@ public enum FireballEnchantment {
      * 等级越高，引力范围和持续时间越长
      * I级=5格范围/3秒，II级=8格范围/5秒，III级=12格范围/8秒
      */
-    GRAVITY("gravity", "引力奇点", 3);
+    GRAVITY("gravity", "引力奇点", 3),
+    
+    /**
+     * 滑稽变形附魔
+     * 火球将命中的怪物变成无害的被动生物（鸡、兔子、猪）
+     * 等级越高，变形概率越高
+     * I级=33%概率，II级=66%概率，III级=100%概率
+     */
+    POLYMORPH("polymorph", "滑稽变形", 3);
     
     // 附魔ID（用于配置文件和NBT存储）
     private final String id;

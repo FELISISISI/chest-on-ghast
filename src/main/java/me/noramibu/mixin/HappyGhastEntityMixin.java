@@ -79,6 +79,18 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     @Unique
     private int gravityTickCounter = 0;
     
+    // 用于追踪变形效果云（存储效果云ID和变形等级）
+    @Unique
+    private final java.util.Map<Integer, Integer> polymorphClouds = new java.util.HashMap<>();
+    
+    // 变形效果的处理间隔（ticks）
+    @Unique
+    private int polymorphTickCounter = 0;
+    
+    // 用于追踪已变形的实体ID（防止重复变形）
+    @Unique
+    private final java.util.Set<Integer> polymorphedEntities = new java.util.HashSet<>();
+    
     // 这个构造函数仅为了满足编译，永远不会被调用
     protected HappyGhastEntityMixin(net.minecraft.entity.EntityType<? extends net.minecraft.entity.mob.MobEntity> entityType, net.minecraft.world.World world) {
         super(entityType, world);
@@ -437,6 +449,13 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 processGravityClouds(ghast);
                 gravityTickCounter = 0;
             }
+            
+            // 处理滑稽变形（每5 ticks检查一次）
+            polymorphTickCounter++;
+            if (polymorphTickCounter >= 5) {
+                processPolymorphClouds(ghast);
+                polymorphTickCounter = 0;
+            }
         }
     }
     
@@ -763,13 +782,22 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             me.noramibu.enchantment.FireballEnchantment.CHARM
         );
         
-        // 检查引力奇点附魔（最高优先级）
+        // 检查滑稽变形附魔
+        int polymorphLevel = me.noramibu.enchantment.EnchantmentHelper.getEnchantmentLevel(
+            ghast, 
+            me.noramibu.enchantment.FireballEnchantment.POLYMORPH
+        );
+        
+        // 检查引力奇点附魔
         int gravityLevel = me.noramibu.enchantment.EnchantmentHelper.getEnchantmentLevel(
             ghast, 
             me.noramibu.enchantment.FireballEnchantment.GRAVITY
         );
         
-        if (gravityLevel > 0) {
+        if (polymorphLevel > 0) {
+            // 有变形附魔，使用彩色爆炸粒子（欢乐感）
+            cloud.setParticleType(net.minecraft.particle.ParticleTypes.TOTEM_OF_UNDYING);
+        } else if (gravityLevel > 0) {
             // 有引力奇点附魔，使用黑洞粒子（黑色传送门粒子）
             cloud.setParticleType(net.minecraft.particle.ParticleTypes.PORTAL);
         } else if (charmLevel > 0) {
@@ -798,7 +826,15 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             addFreezingEffect(cloud, freezingLevel);
         }
         
-        // 如果有引力奇点附魔，追踪这个效果云（最高优先级）
+        // 如果有滑稽变形附魔，追踪这个效果云（最高优先级）
+        if (polymorphLevel > 0) {
+            // 变形效果不需要任何状态效果，只需要变形逻辑
+            world.spawnEntity(cloud);
+            polymorphClouds.put(cloud.getId(), polymorphLevel);
+            return;  // 提前返回，变形效果不需要其他效果
+        }
+        
+        // 如果有引力奇点附魔，追踪这个效果云
         if (gravityLevel > 0) {
             // 引力奇点不需要任何状态效果，只需要引力拉取
             world.spawnEntity(cloud);
@@ -1251,5 +1287,239 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 0.0  // 速度
             );
         }
+    }
+    
+    /**
+     * 处理所有滑稽变形效果云
+     * 检查追踪的效果云并应用变形效果
+     */
+    @Unique
+    private void processPolymorphClouds(HappyGhastEntity ghast) {
+        if (polymorphClouds.isEmpty()) return;
+        
+        // 定期清理过期数据（每200 ticks / 10秒）
+        if (tickCounter % 200 == 0) {
+            if (polymorphClouds.size() > 20) {
+                // 如果Map过大，清理所有数据以防止内存泄漏
+                polymorphClouds.clear();
+            }
+            if (polymorphedEntities.size() > 100) {
+                // 清理已变形实体记录
+                polymorphedEntities.clear();
+            }
+            if (polymorphClouds.isEmpty() && polymorphedEntities.isEmpty()) {
+                return;
+            }
+        }
+        
+        // 检查每个追踪的变形效果云
+        java.util.Iterator<java.util.Map.Entry<Integer, Integer>> iterator = polymorphClouds.entrySet().iterator();
+        while (iterator.hasNext()) {
+            java.util.Map.Entry<Integer, Integer> entry = iterator.next();
+            int cloudId = entry.getKey();
+            int polymorphLevel = entry.getValue();
+            
+            // 尝试获取效果云实体
+            Entity entity = ghast.getEntityWorld().getEntityById(cloudId);
+            
+            if (entity instanceof net.minecraft.entity.AreaEffectCloudEntity cloud) {
+                // 效果云还存在，应用变形效果
+                applyPolymorphEffect(ghast.getEntityWorld(), cloud, polymorphLevel);
+            } else {
+                // 效果云已消失，移除追踪
+                iterator.remove();
+            }
+        }
+    }
+    
+    /**
+     * 应用滑稽变形效果：将怪物变成无害的被动生物
+     * @param world 世界
+     * @param cloud 效果云实体
+     * @param polymorphLevel 变形附魔等级
+     */
+    @Unique
+    private void applyPolymorphEffect(net.minecraft.world.World world, net.minecraft.entity.AreaEffectCloudEntity cloud, int polymorphLevel) {
+        // 获取效果云位置和半径
+        Vec3d cloudPos = new Vec3d(cloud.getX(), cloud.getY(), cloud.getZ());
+        double radius = cloud.getRadius();
+        
+        // 根据附魔等级确定变形概率
+        double polymorphChance;
+        
+        switch (polymorphLevel) {
+            case 1:
+                polymorphChance = 0.33;  // 33%概率
+                break;
+            case 2:
+                polymorphChance = 0.66;  // 66%概率
+                break;
+            case 3:
+                polymorphChance = 1.0;   // 100%概率
+                break;
+            default:
+                polymorphChance = 0.33;
+        }
+        
+        // 搜索范围
+        Box searchBox = new Box(
+            cloudPos.x - radius, cloudPos.y - radius, cloudPos.z - radius,
+            cloudPos.x + radius, cloudPos.y + radius, cloudPos.z + radius
+        );
+        
+        // 获取范围内的所有敌对生物
+        List<HostileEntity> hostiles = world.getEntitiesByClass(
+            HostileEntity.class,
+            searchBox,
+            entity -> entity.isAlive() && !entity.isRemoved()
+        );
+        
+        // 限制处理的怪物数量，防止性能问题
+        int maxProcessed = Math.min(hostiles.size(), 10);  // 最多处理10个怪物
+        
+        // 只在服务端执行
+        if (!(world instanceof net.minecraft.server.world.ServerWorld serverWorld)) {
+            return;
+        }
+        
+        // 对每个怪物尝试变形
+        for (int i = 0; i < maxProcessed; i++) {
+            HostileEntity hostile = hostiles.get(i);
+            int entityId = hostile.getId();
+            
+            // 检查是否已经被变形过（直接使用this访问字段）
+            if (this.polymorphedEntities.contains(entityId)) {
+                continue;  // 已变形过，跳过
+            }
+            
+            // 根据概率决定是否变形
+            if (world.getRandom().nextDouble() < polymorphChance) {
+                // 执行变形！
+                polymorphHostileToPassive(serverWorld, hostile);
+                // 标记已变形
+                this.polymorphedEntities.add(entityId);
+            }
+        }
+    }
+    
+    /**
+     * 将敌对生物变形为被动生物
+     * @param world 世界
+     * @param hostile 敌对生物
+     */
+    @Unique
+    private void polymorphHostileToPassive(net.minecraft.server.world.ServerWorld world, HostileEntity hostile) {
+        // 保存原怪物的位置和信息
+        double x = hostile.getX();
+        double y = hostile.getY();
+        double z = hostile.getZ();
+        float yaw = hostile.getYaw();
+        float pitch = hostile.getPitch();
+        
+        // 随机选择要变成的被动生物类型
+        net.minecraft.entity.EntityType<?> passiveType;
+        int choice = world.getRandom().nextInt(5);  // 5种被动生物
+        
+        switch (choice) {
+            case 0:
+                passiveType = net.minecraft.entity.EntityType.CHICKEN;  // 鸡
+                break;
+            case 1:
+                passiveType = net.minecraft.entity.EntityType.RABBIT;   // 兔子
+                break;
+            case 2:
+                passiveType = net.minecraft.entity.EntityType.PIG;      // 猪
+                break;
+            case 3:
+                passiveType = net.minecraft.entity.EntityType.SHEEP;    // 羊
+                break;
+            case 4:
+                passiveType = net.minecraft.entity.EntityType.COW;      // 牛
+                break;
+            default:
+                passiveType = net.minecraft.entity.EntityType.CHICKEN;
+        }
+        
+        // 创建新的被动生物实体（使用正确的create方法）
+        Entity passiveEntity = passiveType.create(
+            world,
+            net.minecraft.entity.SpawnReason.MOB_SUMMONED
+        );
+        
+        if (passiveEntity != null) {
+            // 设置位置和朝向
+            passiveEntity.refreshPositionAndAngles(x, y, z, yaw, pitch);
+            
+            // 如果原怪物有自定义名字，保留它
+            if (hostile.hasCustomName()) {
+                passiveEntity.setCustomName(hostile.getCustomName());
+                passiveEntity.setCustomNameVisible(hostile.isCustomNameVisible());
+            }
+            
+            // 生成被动生物
+            world.spawnEntity(passiveEntity);
+            
+            // 移除原怪物
+            hostile.discard();
+            
+            // 生成华丽的变形粒子效果
+            spawnPolymorphParticles(world, x, y + hostile.getHeight() / 2, z);
+            
+            // 播放变形音效
+            world.playSound(
+                null,
+                x, y, z,
+                net.minecraft.sound.SoundEvents.ENTITY_ILLUSIONER_MIRROR_MOVE,
+                net.minecraft.sound.SoundCategory.HOSTILE,
+                1.0f,
+                1.5f  // 高音调，更滑稽
+            );
+        }
+    }
+    
+    /**
+     * 生成变形粒子效果
+     * @param world 世界
+     * @param x X坐标
+     * @param y Y坐标
+     * @param z Z坐标
+     */
+    @Unique
+    private void spawnPolymorphParticles(net.minecraft.server.world.ServerWorld world, double x, double y, double z) {
+        // 不死图腾粒子（金色爆炸效果）
+        world.spawnParticles(
+            net.minecraft.particle.ParticleTypes.TOTEM_OF_UNDYING,
+            x, y, z,
+            30,  // 大量粒子
+            0.5, 0.5, 0.5,  // 扩散范围
+            0.1  // 速度
+        );
+        
+        // 爆炸粒子（白色闪光）
+        world.spawnParticles(
+            net.minecraft.particle.ParticleTypes.EXPLOSION,
+            x, y, z,
+            5,  // 粒子数量
+            0.3, 0.3, 0.3,  // 扩散范围
+            0.0  // 速度
+        );
+        
+        // 快乐村民粒子（绿色爱心）
+        world.spawnParticles(
+            net.minecraft.particle.ParticleTypes.HAPPY_VILLAGER,
+            x, y, z,
+            20,  // 粒子数量
+            0.5, 0.5, 0.5,  // 扩散范围
+            0.05  // 速度
+        );
+        
+        // 末影人传送粒子（紫色烟雾）
+        world.spawnParticles(
+            net.minecraft.particle.ParticleTypes.PORTAL,
+            x, y, z,
+            50,  // 大量粒子
+            0.5, 0.8, 0.5,  // 扩散范围
+            0.2  // 速度
+        );
     }
 }

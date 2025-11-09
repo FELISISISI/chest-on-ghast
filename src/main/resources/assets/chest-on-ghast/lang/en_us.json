@@ -51,6 +51,10 @@
   "enchantment.chest-on-ghast.gravity.desc": "Creates gravity singularity that pulls entities to center",
   "enchantment.chest-on-ghast.gravity.effect": "Range %s blocks",
   
+  "enchantment.chest-on-ghast.polymorph": "Hilarious Polymorph",
+  "enchantment.chest-on-ghast.polymorph.desc": "Transforms monsters into harmless passive animals",
+  "enchantment.chest-on-ghast.polymorph.effect": "Chance %s%%",
+  
   "gui.chest-on-ghast.enchantments": "Fireball Enchantments",
   "gui.chest-on-ghast.enchantment.edit": "Edit Enchantments",
   "gui.chest-on-ghast.enchantment.slots": "Enchantment Slots",
