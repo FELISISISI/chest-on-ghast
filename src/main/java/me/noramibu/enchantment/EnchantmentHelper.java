@@ -5,6 +5,7 @@ import me.noramibu.data.HappyGhastData;
 import net.minecraft.entity.LivingEntity;
 import net.minecraft.entity.passive.HappyGhastEntity;
 import net.minecraft.entity.projectile.FireballEntity;
+import net.minecraft.nbt.NbtCompound;
 import net.minecraft.sound.SoundEvents;
 import net.minecraft.util.math.Vec3d;
 
@@ -82,12 +83,33 @@ public class EnchantmentHelper {
         // 生成火球
         ghast.getEntityWorld().spawnEntity(fireball);
         
+        // 检查穿透追踪附魔（注意：此附魔功能需要额外的Mixin实现）
+        int piercingLevel = getEnchantmentLevel(ghast, FireballEnchantment.PIERCING);
+        
+        // TODO: 穿透追踪附魔需要额外的FireballEntity Mixin来实现
+        // 目前暂时未完全实现，附魔书可以装备但效果不生效
+        if (piercingLevel > 0) {
+            // 未来版本将实现：火球击中目标后不消失，转向下一个敌人
+        }
+        
         // 如果恶魂等级>=3，追踪火球用于效果云生成
         trackFireballForEffectCloud(ghast, fireball);
         
         // 播放音效
         ghast.playSound(SoundEvents.ENTITY_GHAST_SHOOT, 10.0f, 
             (ghast.getRandom().nextFloat() - ghast.getRandom().nextFloat()) * 0.2f + 1.0f);
+    }
+    
+    /**
+     * 获取穿透追踪附魔的目标数量
+     */
+    public static int getPiercingTargetCount(int level) {
+        switch (level) {
+            case 1: return 2;  // I级：2个目标
+            case 2: return 3;  // II级：3个目标
+            case 3: return 5;  // III级：5个目标
+            default: return 2;
+        }
     }
     
     /**
