@@ -63,6 +63,14 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     @Unique
     private final java.util.Map<Integer, Vec3d> fireballPositions = new java.util.HashMap<>();
     
+    // 用于追踪魅惑效果云（存储效果云ID和魅惑等级）
+    @Unique
+    private final java.util.Map<Integer, Integer> charmClouds = new java.util.HashMap<>();
+    
+    // 魅惑效果的处理间隔（ticks）
+    @Unique
+    private int charmTickCounter = 0;
+    
     // 这个构造函数仅为了满足编译，永远不会被调用
     protected HappyGhastEntityMixin(net.minecraft.entity.EntityType<? extends net.minecraft.entity.mob.MobEntity> entityType, net.minecraft.world.World world) {
         super(entityType, world);
@@ -402,6 +410,13 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             
             // 检查并处理火球击中后的效果云生成
             checkAndSpawnEffectClouds(ghast);
+            
+            // 处理魅惑效果云（每10 ticks检查一次）
+            charmTickCounter++;
+            if (charmTickCounter >= 10) {
+                processCharmClouds(ghast);
+                charmTickCounter = 0;
+            }
         }
     }
     
@@ -708,17 +723,26 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         cloud.setWaitTime(10);  // 生成后延迟10 ticks才开始生效
         cloud.setRadiusGrowth(-cloud.getRadius() / (float)finalDuration);  // 半径随时间缓慢缩小
         
-        // 设置粒子效果（根据是否有冰冻附魔选择不同粒子）
+        // 设置粒子效果（根据附魔选择不同粒子）
         int freezingLevel = me.noramibu.enchantment.EnchantmentHelper.getEnchantmentLevel(
             ghast, 
             me.noramibu.enchantment.FireballEnchantment.FREEZING
         );
         
-        if (freezingLevel > 0) {
+        // 检查魅惑附魔（优先显示）
+        int charmLevel = me.noramibu.enchantment.EnchantmentHelper.getEnchantmentLevel(
+            ghast, 
+            me.noramibu.enchantment.FireballEnchantment.CHARM
+        );
+        
+        if (charmLevel > 0) {
+            // 有魅惑附魔，使用魔法粒子（紫色）
+            cloud.setParticleType(net.minecraft.particle.ParticleTypes.WITCH);
+        } else if (freezingLevel > 0) {
             // 有冰冻附魔，使用雪花粒子（白色）
             cloud.setParticleType(net.minecraft.particle.ParticleTypes.SNOWFLAKE);
         } else {
-            // 没有冰冻附魔，使用治疗粒子（绿色）
+            // 没有特殊附魔，使用治疗粒子（绿色）
             cloud.setParticleType(net.minecraft.particle.ParticleTypes.HAPPY_VILLAGER);
         }
         
@@ -735,6 +759,14 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 添加冰冻效果（如果有冰冻附魔）
         if (freezingLevel > 0) {
             addFreezingEffect(cloud, freezingLevel);
+        }
+        
+        // 如果有魅惑附魔，追踪这个效果云（魅惑等级已在上面检查过）
+        if (charmLevel > 0) {
+            // 在生成效果云后追踪它
+            world.spawnEntity(cloud);
+            charmClouds.put(cloud.getId(), charmLevel);
+            return;  // 提前返回，避免重复生成（魅惑云不需要治疗效果）
         }
         
         // 添加对玩家的生命恢复效果（使用增强后的持续时间）
@@ -864,5 +896,113 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 true
             );
         cloud.addEffect(speedBoostEffect);
+    }
+    
+    /**
+     * 处理所有魅惑效果云
+     * 检查追踪的效果云并应用魅惑效果
+     */
+    @Unique
+    private void processCharmClouds(HappyGhastEntity ghast) {
+        if (charmClouds.isEmpty()) return;
+        
+        // 检查每个追踪的效果云
+        java.util.Iterator<java.util.Map.Entry<Integer, Integer>> iterator = charmClouds.entrySet().iterator();
+        while (iterator.hasNext()) {
+            java.util.Map.Entry<Integer, Integer> entry = iterator.next();
+            int cloudId = entry.getKey();
+            int charmLevel = entry.getValue();
+            
+            // 尝试获取效果云实体
+            Entity entity = ghast.getEntityWorld().getEntityById(cloudId);
+            
+            if (entity instanceof net.minecraft.entity.AreaEffectCloudEntity cloud) {
+                // 效果云还存在，应用魅惑效果
+                applyCharmEffect(ghast.getEntityWorld(), cloud, charmLevel);
+            } else {
+                // 效果云已消失，移除追踪
+                iterator.remove();
+            }
+        }
+    }
+    
+    /**
+     * 应用魅惑效果：让效果云范围内的怪物互相攻击
+     * @param world 世界
+     * @param cloud 效果云实体
+     * @param charmLevel 魅惑附魔等级
+     */
+    @Unique
+    private void applyCharmEffect(net.minecraft.world.World world, net.minecraft.entity.AreaEffectCloudEntity cloud, int charmLevel) {
+        // 获取效果云位置和半径
+        Vec3d cloudPos = new Vec3d(cloud.getX(), cloud.getY(), cloud.getZ());
+        double radius = cloud.getRadius();
+        
+        // 根据附魔等级确定魅惑参数
+        float damageAmount;    // 互相伤害量
+        
+        switch (charmLevel) {
+            case 1:
+                damageAmount = 2.0f;  // 1颗心
+                break;
+            case 2:
+                damageAmount = 4.0f;  // 2颗心
+                break;
+            case 3:
+                damageAmount = 6.0f;  // 3颗心
+                break;
+            default:
+                damageAmount = 2.0f;
+        }
+        
+        // 获取效果云范围内的所有敌对生物
+        Box searchBox = new Box(
+            cloudPos.x - radius, cloudPos.y - radius, cloudPos.z - radius,
+            cloudPos.x + radius, cloudPos.y + radius, cloudPos.z + radius
+        );
+        
+        List<HostileEntity> hostiles = world.getEntitiesByClass(
+            HostileEntity.class,
+            searchBox,
+            entity -> entity.isAlive() && !entity.isRemoved()
+        );
+        
+        // 如果范围内有2个或更多怪物，让它们互相攻击
+        if (hostiles.size() >= 2) {
+            // 让每个怪物攻击范围内的另一个随机怪物
+            for (HostileEntity attacker : hostiles) {
+                // 找到一个不是自己的目标
+                List<HostileEntity> potentialTargets = new java.util.ArrayList<>(hostiles);
+                potentialTargets.remove(attacker);
+                
+                if (!potentialTargets.isEmpty()) {
+                    // 随机选择一个目标
+                    HostileEntity target = potentialTargets.get(world.getRandom().nextInt(potentialTargets.size()));
+                    
+                    // 让attacker对target造成伤害
+                    // 使用mobAttack伤害源，让target认为是attacker攻击的
+                    if (world instanceof ServerWorld serverWorld) {
+                        target.damage(
+                            serverWorld,
+                            world.getDamageSources().mobAttack(attacker),
+                            damageAmount
+                        );
+                    }
+                    
+                    // 生成攻击粒子效果（愤怒粒子）
+                    if (world instanceof ServerWorld serverWorld) {
+                        serverWorld.spawnParticles(
+                            net.minecraft.particle.ParticleTypes.ANGRY_VILLAGER,
+                            attacker.getX(),
+                            attacker.getY() + attacker.getHeight() / 2,
+                            attacker.getZ(),
+                            3,  // 粒子数量
+                            0.3, 0.3, 0.3,  // 偏移
+                            0.0  // 速度
+                        );
+                    }
+                }
+            }
+        }
     }
 }
