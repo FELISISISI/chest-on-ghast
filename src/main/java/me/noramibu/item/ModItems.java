@@ -15,6 +15,10 @@ public class ModItems {
     public static final Item GHAST_SCOPE = registerItem("ghast_scope",
         new GhastScopeItem(new Item.Settings().maxCount(1)));
     
+    // 快乐恶魂专用附魔书
+    public static final Item ENCHANTED_FIREBALL_BOOK = registerItem("enchanted_fireball_book",
+        new EnchantedFireballBookItem(new Item.Settings().maxCount(1)));
+    
     /**
      * 注册物品
      * @param name 物品ID

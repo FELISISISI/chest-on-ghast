@@ -136,10 +136,8 @@ public class EnchantmentData {
             slotNbt.putString("Enchantment", entry.getValue().getEnchantment().getId());
             slotNbt.putInt("Level", entry.getValue().getLevel());
             
-            // 保存物品栈
-            NbtCompound itemNbt = new NbtCompound();
-            entry.getValue().getBookStack().writeNbt(itemNbt);
-            slotNbt.put("Book", itemNbt);
+            // 保存物品栈（简化存储，只存储附魔信息即可）
+            // 不保存完整物品栈，节省存储空间
             
             enchantmentList.add(slotNbt);
         }
@@ -155,19 +153,20 @@ public class EnchantmentData {
         enchantmentSlots.clear();
         
         if (nbt.contains("Enchantments")) {
-            NbtList enchantmentList = nbt.getList("Enchantments", 10); // 10 = Compound type
+            NbtList enchantmentList = nbt.getList("Enchantments").orElse(new NbtList());
             
             for (int i = 0; i < enchantmentList.size(); i++) {
-                NbtCompound slotNbt = enchantmentList.getCompound(i);
-                int slot = slotNbt.getInt("Slot");
-                String enchantmentId = slotNbt.getString("Enchantment");
-                int level = slotNbt.getInt("Level");
+                NbtCompound slotNbt = enchantmentList.getCompound(i).orElse(null);
+                if (slotNbt == null) continue;
+                
+                int slot = slotNbt.getInt("Slot").orElse(0);
+                String enchantmentId = slotNbt.getString("Enchantment").orElse("");
+                int level = slotNbt.getInt("Level").orElse(1);
                 
                 FireballEnchantment enchantment = FireballEnchantment.fromId(enchantmentId);
-                if (enchantment != null && slotNbt.contains("Book")) {
-                    NbtCompound itemNbt = slotNbt.getCompound("Book");
-                    ItemStack bookStack = ItemStack.fromNbt(itemNbt);
-                    
+                if (enchantment != null) {
+                    // 重新创建附魔书物品栈
+                    ItemStack bookStack = me.noramibu.item.EnchantedFireballBookItem.create(enchantment, level);
                     enchantmentSlots.put(slot, new EnchantmentSlot(enchantment, level, bookStack));
                 }
             }

@@ -20,5 +20,30 @@
   "message.chest-on-ghast.scope_hint": "Hold right-click to aim, release to shoot fireball",
   "message.chest-on-ghast.need_saddle": "Happy Ghast needs a saddle to be ridden!",
   "message.chest-on-ghast.effect_cloud_unlocked": "Happy Ghast reached level 3! Fireballs now spawn healing clouds!",
-  "effect.chest-on-ghast.healing_cloud": "Happy Ghast's Blessing"
+  "effect.chest-on-ghast.healing_cloud": "Happy Ghast's Blessing",
+  
+  "item.chest-on-ghast.enchanted_fireball_book": "Enchanted Fireball Book",
+  "item.chest-on-ghast.fireball_book.usage": "Use in Happy Ghast GUI",
+  "item.chest-on-ghast.fireball_book.level": "Level: %s/%s",
+  "item.chest-on-ghast.fireball_book.effect": "Effect:",
+  
+  "enchantment.chest-on-ghast.multishot": "Multishot",
+  "enchantment.chest-on-ghast.multishot.desc": "Fire multiple fireballs at once",
+  "enchantment.chest-on-ghast.multishot.effect": "Fire %s fireballs",
+  
+  "enchantment.chest-on-ghast.freezing": "Freezing",
+  "enchantment.chest-on-ghast.freezing.desc": "Effect cloud freezes monsters",
+  "enchantment.chest-on-ghast.freezing.effect": "Freeze for %s seconds",
+  
+  "enchantment.chest-on-ghast.charm": "Charm",
+  "enchantment.chest-on-ghast.charm.desc": "Monsters attack each other",
+  "enchantment.chest-on-ghast.charm.effect": "Lasts %s seconds",
+  
+  "enchantment.chest-on-ghast.piercing": "Piercing Tracker",
+  "enchantment.chest-on-ghast.piercing.desc": "Fireball pierces and tracks multiple enemies",
+  "enchantment.chest-on-ghast.piercing.effect": "Hit %s targets",
+  
+  "enchantment.chest-on-ghast.duration": "Duration",
+  "enchantment.chest-on-ghast.duration.desc": "Effect cloud lasts longer",
+  "enchantment.chest-on-ghast.duration.effect": "Duration %s"
 }

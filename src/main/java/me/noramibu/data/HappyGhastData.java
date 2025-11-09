@@ -299,7 +299,10 @@ public class HappyGhastData {
         // 读取附魔数据
         if (nbt.contains("EnchantmentData")) {
             data.enchantmentData = new EnchantmentData();
-            data.enchantmentData.readFromNbt(nbt.getCompound("EnchantmentData"));
+            NbtCompound enchantNbt = nbt.getCompound("EnchantmentData").orElse(null);
+            if (enchantNbt != null) {
+                data.enchantmentData.readFromNbt(enchantNbt);
+            }
         }
         
         return data;
