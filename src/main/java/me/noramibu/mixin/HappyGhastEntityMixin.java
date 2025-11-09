@@ -422,6 +422,20 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         
         // 只在服务端处理交互
         if (!ghast.getEntityWorld().isClient()) {
+            // 检查是否空手且未潜行 - 骑乘快乐恶魂
+            if (itemStack.isEmpty() && !player.isSneaking()) {
+                // 如果快乐恶魂没有乘客，让玩家骑上去
+                if (!ghast.hasPassengers()) {
+                    player.startRiding(ghast);
+                    player.sendMessage(
+                        Text.translatable("message.chest-on-ghast.mounted"),
+                        true
+                    );
+                    cir.setReturnValue(ActionResult.SUCCESS);
+                    return;
+                }
+            }
+            
             // 检查是否按住Shift键 - 打开GUI
             if (player.isSneaking()) {
                 if (player instanceof ServerPlayerEntity serverPlayer) {

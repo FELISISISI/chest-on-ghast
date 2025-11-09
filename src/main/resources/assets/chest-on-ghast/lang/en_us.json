@@ -14,5 +14,9 @@
   "message.chest-on-ghast.fed": "Hunger +%s  EXP +%s",
   "message.chest-on-ghast.favorite_food": "❤ Happy Ghast LOVES this food! ❤",
   "message.chest-on-ghast.combat_mode": "Happy Ghast entered combat mode!",
-  "message.chest-on-ghast.protecting": "Happy Ghast is protecting you!"
+  "message.chest-on-ghast.protecting": "Happy Ghast is protecting you!",
+  "item.chest-on-ghast.ghast_scope": "Happy Ghast Scope",
+  "message.chest-on-ghast.mounted": "You mounted the Happy Ghast! Press Shift to dismount",
+  "message.chest-on-ghast.fireball_shot": "Fireball shot!",
+  "message.chest-on-ghast.scope_hint": "Hold right-click to aim, release to shoot fireball"
 }
