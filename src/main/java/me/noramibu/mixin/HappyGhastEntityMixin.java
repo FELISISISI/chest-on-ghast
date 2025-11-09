@@ -708,8 +708,19 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         cloud.setWaitTime(10);  // 生成后延迟10 ticks才开始生效
         cloud.setRadiusGrowth(-cloud.getRadius() / (float)finalDuration);  // 半径随时间缓慢缩小
         
-        // 设置粒子效果（使用治疗粒子）
-        cloud.setParticleType(net.minecraft.particle.ParticleTypes.HAPPY_VILLAGER);
+        // 设置粒子效果（根据是否有冰冻附魔选择不同粒子）
+        int freezingLevel = me.noramibu.enchantment.EnchantmentHelper.getEnchantmentLevel(
+            ghast, 
+            me.noramibu.enchantment.FireballEnchantment.FREEZING
+        );
+        
+        if (freezingLevel > 0) {
+            // 有冰冻附魔，使用雪花粒子（白色）
+            cloud.setParticleType(net.minecraft.particle.ParticleTypes.SNOWFLAKE);
+        } else {
+            // 没有冰冻附魔，使用治疗粒子（绿色）
+            cloud.setParticleType(net.minecraft.particle.ParticleTypes.HAPPY_VILLAGER);
+        }
         
         // 添加对怪物的伤害效果（瞬间伤害）
         net.minecraft.entity.effect.StatusEffectInstance damageEffect = new net.minecraft.entity.effect.StatusEffectInstance(
@@ -720,6 +731,11 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             false  // 不在HUD显示图标
         );
         cloud.addEffect(damageEffect);
+        
+        // 添加冰冻效果（如果有冰冻附魔）
+        if (freezingLevel > 0) {
+            addFreezingEffect(cloud, freezingLevel);
+        }
         
         // 添加对玩家的生命恢复效果（使用增强后的持续时间）
         net.minecraft.entity.effect.StatusEffectInstance regenEffect = new net.minecraft.entity.effect.StatusEffectInstance(
@@ -782,5 +798,71 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         
         // 返回增强后的持续时间
         return Math.round(baseDuration * multiplier);
+    }
+    
+    /**
+     * 添加冰冻效果到效果云
+     * @param cloud 效果云实体
+     * @param freezingLevel 冰冻附魔等级
+     */
+    @Unique
+    private void addFreezingEffect(net.minecraft.entity.AreaEffectCloudEntity cloud, int freezingLevel) {
+        // 根据附魔等级确定冰冻参数
+        int duration;      // 持续时间（ticks）
+        int amplifier;     // 缓慢强度
+        
+        switch (freezingLevel) {
+            case 1:
+                duration = 60;      // 3秒
+                amplifier = 4;      // 缓慢V（基本无法移动）
+                break;
+            case 2:
+                duration = 100;     // 5秒
+                amplifier = 6;      // 缓慢VII（完全冻结）
+                break;
+            case 3:
+                duration = 160;     // 8秒
+                amplifier = 9;      // 缓慢X（超级冻结）
+                break;
+            default:
+                duration = 60;
+                amplifier = 4;
+        }
+        
+        // 添加缓慢效果（对所有实体）
+        net.minecraft.entity.effect.StatusEffectInstance slownessEffect = 
+            new net.minecraft.entity.effect.StatusEffectInstance(
+                net.minecraft.entity.effect.StatusEffects.SLOWNESS,
+                duration,
+                amplifier,
+                false,  // 不显示环境粒子
+                true    // 在HUD显示图标
+            );
+        cloud.addEffect(slownessEffect);
+        
+        // 添加挖掘疲劳效果（防止怪物攻击）
+        net.minecraft.entity.effect.StatusEffectInstance miningFatigueEffect = 
+            new net.minecraft.entity.effect.StatusEffectInstance(
+                net.minecraft.entity.effect.StatusEffects.MINING_FATIGUE,
+                duration,
+                amplifier,
+                false,  // 不显示环境粒子
+                true    // 在HUD显示图标
+            );
+        cloud.addEffect(miningFatigueEffect);
+        
+        // 为玩家添加额外的速度效果来部分抵消缓慢
+        // 注意：效果云的效果会对所有实体生效，所以玩家也会被减速
+        // 但玩家通常有装备和其他buff可以抵消
+        // 这里添加一个额外的速度buff给玩家一些补偿
+        net.minecraft.entity.effect.StatusEffectInstance speedBoostEffect = 
+            new net.minecraft.entity.effect.StatusEffectInstance(
+                net.minecraft.entity.effect.StatusEffects.SPEED,
+                duration,
+                Math.min(amplifier / 2, 2),  // 速度效果（较弱，给玩家一些补偿）
+                false,
+                true
+            );
+        cloud.addEffect(speedBoostEffect);
     }
 }
