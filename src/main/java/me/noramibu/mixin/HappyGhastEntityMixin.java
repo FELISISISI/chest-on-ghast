@@ -55,6 +55,14 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     @Unique
     private int tickCounter = 0;
     
+    // 用于追踪发射的火球和对应的等级
+    @Unique
+    private final java.util.Map<Integer, Integer> fireballLevels = new java.util.HashMap<>();
+    
+    // 用于存储火球最后已知位置
+    @Unique
+    private final java.util.Map<Integer, Vec3d> fireballPositions = new java.util.HashMap<>();
+    
     // 这个构造函数仅为了满足编译，永远不会被调用
     protected HappyGhastEntityMixin(net.minecraft.entity.EntityType<? extends net.minecraft.entity.mob.MobEntity> entityType, net.minecraft.world.World world) {
         super(entityType, world);
@@ -255,6 +263,12 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             // 播放发射音效
             this.ghast.playSound(SoundEvents.ENTITY_GHAST_SHOOT, 10.0f, 
                 (this.ghast.getRandom().nextFloat() - this.ghast.getRandom().nextFloat()) * 0.2f + 1.0f);
+            
+            // 如果是3级及以上，记录火球用于后续生成效果云
+            if (currentLevel >= 3) {
+                HappyGhastEntityMixin mixin = (HappyGhastEntityMixin) (Object) this.ghast;
+                mixin.trackFireball(fireball, currentLevel);
+            }
         }
     }
     
@@ -403,6 +417,9 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             
             // 确保血量上限正确
             updateMaxHealth(ghast);
+            
+            // 检查并处理火球击中后的效果云生成
+            checkAndSpawnEffectClouds(ghast);
         }
     }
     
@@ -631,5 +648,112 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 ghast.setHealth(maxHealth);
             }
         }
+    }
+    
+    /**
+     * 追踪发射的火球
+     * @param fireball 火球实体
+     * @param level 快乐恶魂等级
+     */
+    @Unique
+    public void trackFireball(FireballEntity fireball, int level) {
+        fireballLevels.put(fireball.getId(), level);
+        fireballPositions.put(fireball.getId(), new Vec3d(fireball.getX(), fireball.getY(), fireball.getZ()));
+    }
+    
+    /**
+     * 检查火球并生成效果云
+     * 每tick检查追踪的火球是否已击中目标
+     */
+    @Unique
+    private void checkAndSpawnEffectClouds(HappyGhastEntity ghast) {
+        if (fireballLevels.isEmpty()) return;
+        
+        // 检查每个追踪的火球
+        java.util.Iterator<java.util.Map.Entry<Integer, Integer>> iterator = fireballLevels.entrySet().iterator();
+        while (iterator.hasNext()) {
+            java.util.Map.Entry<Integer, Integer> entry = iterator.next();
+            int fireballId = entry.getKey();
+            int level = entry.getValue();
+            
+            // 尝试获取火球实体
+            Entity entity = ghast.getEntityWorld().getEntityById(fireballId);
+            
+            if (entity instanceof FireballEntity fireball) {
+                // 火球还存在，更新最后已知位置
+                fireballPositions.put(fireballId, new Vec3d(fireball.getX(), fireball.getY(), fireball.getZ()));
+            } else {
+                // 火球已消失（击中目标），生成效果云
+                Vec3d lastPos = fireballPositions.get(fireballId);
+                if (lastPos != null && level >= 3) {
+                    spawnEffectCloud(ghast.getEntityWorld(), lastPos, level);
+                }
+                
+                // 清理记录
+                iterator.remove();
+                fireballPositions.remove(fireballId);
+            }
+        }
+    }
+    
+    /**
+     * 在指定位置生成效果云
+     * @param world 世界
+     * @param pos 位置
+     * @param level 快乐恶魂等级
+     */
+    @Unique
+    private void spawnEffectCloud(net.minecraft.world.World world, Vec3d pos, int level) {
+        // 获取等级配置
+        me.noramibu.config.GhastConfig.LevelConfig config = me.noramibu.config.GhastConfig.getInstance().getLevelConfig(level);
+        
+        // 检查是否启用效果云
+        if (!config.enableEffectCloud) return;
+        
+        // 创建效果云实体
+        net.minecraft.entity.AreaEffectCloudEntity cloud = new net.minecraft.entity.AreaEffectCloudEntity(world, pos.x, pos.y, pos.z);
+        
+        // 设置基本属性
+        cloud.setRadius(config.cloudRadius);  // 效果云半径
+        cloud.setDuration(config.cloudDuration);  // 持续时间
+        cloud.setRadiusOnUse(-0.5F);  // 每次作用时半径缩小量
+        cloud.setWaitTime(10);  // 生成后延迟10 ticks才开始生效
+        cloud.setRadiusGrowth(-cloud.getRadius() / (float)cloud.getDuration());  // 半径随时间缓慢缩小
+        
+        // 设置粒子效果（使用治疗粒子）
+        cloud.setParticleType(net.minecraft.particle.ParticleTypes.HAPPY_VILLAGER);
+        
+        // 添加对怪物的伤害效果（瞬间伤害）
+        net.minecraft.entity.effect.StatusEffectInstance damageEffect = new net.minecraft.entity.effect.StatusEffectInstance(
+            net.minecraft.entity.effect.StatusEffects.INSTANT_DAMAGE,
+            1,  // 持续时间1 tick（瞬间效果）
+            config.damageAmplifier,  // 强度（0=I级，1=II级）
+            false,  // 不显示环境粒子
+            false  // 不在HUD显示图标
+        );
+        cloud.addEffect(damageEffect);
+        
+        // 添加对玩家的生命恢复效果
+        net.minecraft.entity.effect.StatusEffectInstance regenEffect = new net.minecraft.entity.effect.StatusEffectInstance(
+            net.minecraft.entity.effect.StatusEffects.REGENERATION,
+            config.cloudDuration,  // 持续整个效果云时间
+            config.regenAmplifier,  // 强度（0=I级，1=II级，2=III级）
+            false,  // 不显示环境粒子
+            true  // 在HUD显示图标
+        );
+        cloud.addEffect(regenEffect);
+        
+        // 添加速度提升效果给玩家（小幅度）
+        net.minecraft.entity.effect.StatusEffectInstance speedEffect = new net.minecraft.entity.effect.StatusEffectInstance(
+            net.minecraft.entity.effect.StatusEffects.SPEED,
+            config.cloudDuration / 2,  // 持续一半时间
+            0,  // I级速度
+            false,
+            true
+        );
+        cloud.addEffect(speedEffect);
+        
+        // 生成效果云
+        world.spawnEntity(cloud);
     }
 }

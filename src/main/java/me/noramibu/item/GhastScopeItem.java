@@ -82,10 +82,11 @@ public class GhastScopeItem extends Item {
         
         // 获取快乐恶魂的等级和火球威力
         int fireballPower = 1; // 默认威力
+        int level = 1; // 默认等级
         
         // 尝试获取快乐恶魂的等级数据
         if (ghast instanceof me.noramibu.accessor.HappyGhastDataAccessor accessor) {
-            int level = accessor.getGhastData().getLevel();
+            level = accessor.getGhastData().getLevel();
             fireballPower = me.noramibu.level.LevelConfig.getFireballPower(level);
         }
         
@@ -106,6 +107,18 @@ public class GhastScopeItem extends Item {
         
         // 生成火球
         ghast.getEntityWorld().spawnEntity(fireball);
+        
+        // 如果是3级及以上，记录火球用于后续生成效果云
+        if (level >= 3) {
+            // 通过反射或直接调用来追踪火球（因为HappyGhastEntity被Mixin增强）
+            try {
+                java.lang.reflect.Method trackMethod = ghast.getClass().getMethod("trackFireball", 
+                    net.minecraft.entity.projectile.FireballEntity.class, int.class);
+                trackMethod.invoke(ghast, fireball, level);
+            } catch (Exception e) {
+                // 如果反射失败，忽略
+            }
+        }
         
         // 播放发射音效
         ghast.playSound(

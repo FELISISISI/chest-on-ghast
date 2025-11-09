@@ -18,5 +18,7 @@
   "item.chest-on-ghast.ghast_scope": "Happy Ghast Scope",
   "message.chest-on-ghast.fireball_shot": "Fireball shot!",
   "message.chest-on-ghast.scope_hint": "Hold right-click to aim, release to shoot fireball",
-  "message.chest-on-ghast.need_saddle": "Happy Ghast needs a saddle to be ridden!"
+  "message.chest-on-ghast.need_saddle": "Happy Ghast needs a saddle to be ridden!",
+  "message.chest-on-ghast.effect_cloud_unlocked": "Happy Ghast reached level 3! Fireballs now spawn healing clouds!",
+  "effect.chest-on-ghast.healing_cloud": "Happy Ghast's Blessing"
 }

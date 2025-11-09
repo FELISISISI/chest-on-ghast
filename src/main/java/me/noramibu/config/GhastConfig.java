@@ -42,15 +42,30 @@ public class GhastConfig {
         public int fireballPower;        // 火球威力（爆炸强度）
         public int attackCooldown;       // 攻击冷却时间（ticks，20 ticks = 1秒）
         
+        // 效果云配置（3级及以上生效）
+        public boolean enableEffectCloud;    // 是否启用效果云
+        public float cloudRadius;            // 效果云半径
+        public int cloudDuration;            // 效果云持续时间（ticks）
+        public int damageAmplifier;          // 对怪物的伤害强度（0=等级I，1=等级II）
+        public int regenAmplifier;           // 对玩家的生命恢复强度（0=等级I，1=等级II）
+        
         public LevelConfig() {}
         
-        public LevelConfig(float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayMultiplier, int fireballPower, int attackCooldown) {
+        public LevelConfig(float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayMultiplier, 
+                          int fireballPower, int attackCooldown,
+                          boolean enableEffectCloud, float cloudRadius, int cloudDuration, 
+                          int damageAmplifier, int regenAmplifier) {
             this.maxHealth = maxHealth;
             this.maxHunger = maxHunger;
             this.expToNextLevel = expToNextLevel;
             this.hungerDecayMultiplier = hungerDecayMultiplier;
             this.fireballPower = fireballPower;
             this.attackCooldown = attackCooldown;
+            this.enableEffectCloud = enableEffectCloud;
+            this.cloudRadius = cloudRadius;
+            this.cloudDuration = cloudDuration;
+            this.damageAmplifier = damageAmplifier;
+            this.regenAmplifier = regenAmplifier;
         }
     }
     
@@ -110,12 +125,31 @@ public class GhastConfig {
         
         // 配置6个等级，每级饱食度翻倍，消耗速率递减10%
         // 战斗参数：等级越高，火球威力越大，冷却时间越短
-        config.levels.put(1, new LevelConfig(20.0f, 100.0f, 100, 1.0f, 1, 60));        // 等级1：威力1，冷却3秒
-        config.levels.put(2, new LevelConfig(30.0f, 200.0f, 200, 0.9f, 2, 50));        // 等级2：威力2，冷却2.5秒
-        config.levels.put(3, new LevelConfig(45.0f, 400.0f, 350, 0.81f, 3, 40));       // 等级3：威力3，冷却2秒
-        config.levels.put(4, new LevelConfig(65.0f, 800.0f, 550, 0.729f, 4, 30));      // 等级4：威力4，冷却1.5秒
-        config.levels.put(5, new LevelConfig(90.0f, 1600.0f, 800, 0.6561f, 5, 20));    // 等级5：威力5，冷却1秒
-        config.levels.put(6, new LevelConfig(120.0f, 3200.0f, 0, 0.59049f, 6, 15));    // 等级6：威力6，冷却0.75秒
+        // 效果云参数：3级及以上启用，范围和效果强度随等级提升
+        
+        // 等级1：威力1，冷却3秒，无效果云
+        config.levels.put(1, new LevelConfig(20.0f, 100.0f, 100, 1.0f, 1, 60,
+            false, 0, 0, 0, 0));
+        
+        // 等级2：威力2，冷却2.5秒，无效果云
+        config.levels.put(2, new LevelConfig(30.0f, 200.0f, 200, 0.9f, 2, 50,
+            false, 0, 0, 0, 0));
+        
+        // 等级3：威力3，冷却2秒，启用效果云（范围3格，持续5秒，伤害I，恢复I）
+        config.levels.put(3, new LevelConfig(45.0f, 400.0f, 350, 0.81f, 3, 40,
+            true, 3.0f, 100, 0, 0));
+        
+        // 等级4：威力4，冷却1.5秒，效果云增强（范围3.5格，持续6秒，伤害I，恢复II）
+        config.levels.put(4, new LevelConfig(65.0f, 800.0f, 550, 0.729f, 4, 30,
+            true, 3.5f, 120, 0, 1));
+        
+        // 等级5：威力5，冷却1秒，效果云强化（范围4格，持续7秒，伤害II，恢复II）
+        config.levels.put(5, new LevelConfig(90.0f, 1600.0f, 800, 0.6561f, 5, 20,
+            true, 4.0f, 140, 1, 1));
+        
+        // 等级6：威力6，冷却0.75秒，效果云最强（范围5格，持续8秒，伤害II，恢复III）
+        config.levels.put(6, new LevelConfig(120.0f, 3200.0f, 0, 0.59049f, 6, 15,
+            true, 5.0f, 160, 1, 2));
         
         return config;
     }

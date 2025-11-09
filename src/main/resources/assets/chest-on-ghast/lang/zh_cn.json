@@ -18,5 +18,7 @@
   "item.chest-on-ghast.ghast_scope": "快乐恶魂瞄准镜",
   "message.chest-on-ghast.fireball_shot": "火球发射！",
   "message.chest-on-ghast.scope_hint": "长按右键瞄准，松开发射火球",
-  "message.chest-on-ghast.need_saddle": "需要给快乐恶魂装备挽具才能骑乘！"
+  "message.chest-on-ghast.need_saddle": "需要给快乐恶魂装备挽具才能骑乘！",
+  "message.chest-on-ghast.effect_cloud_unlocked": "快乐恶魂达到3级！火球现在会生成治疗效果云！",
+  "effect.chest-on-ghast.healing_cloud": "快乐恶魂的祝福"
 }
