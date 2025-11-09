@@ -13,11 +13,21 @@ import net.minecraft.util.Identifier;
 public class ModItems {
     // 快乐恶魂瞄准镜
     public static final Item GHAST_SCOPE = registerItem("ghast_scope",
-        new GhastScopeItem(new Item.Settings().maxCount(1)));
+        new GhastScopeItem(new Item.Settings().maxCount(1).registryKey(
+            net.minecraft.registry.RegistryKey.of(
+                net.minecraft.registry.RegistryKeys.ITEM,
+                Identifier.of(Chestonghast.MOD_ID, "ghast_scope")
+            )
+        )));
     
     // 快乐恶魂专用附魔书
     public static final Item ENCHANTED_FIREBALL_BOOK = registerItem("enchanted_fireball_book",
-        new EnchantedFireballBookItem(new Item.Settings().maxCount(1)));
+        new EnchantedFireballBookItem(new Item.Settings().maxCount(1).registryKey(
+            net.minecraft.registry.RegistryKey.of(
+                net.minecraft.registry.RegistryKeys.ITEM,
+                Identifier.of(Chestonghast.MOD_ID, "enchanted_fireball_book")
+            )
+        )));
     
     /**
      * 注册物品
