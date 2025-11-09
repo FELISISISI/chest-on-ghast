@@ -679,7 +679,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     }
     
     /**
-     * 在指定位置生成效果云
+     * 在指定位置生成效果云（支持附魔效果）
      * @param world 世界
      * @param pos 位置
      * @param level 快乐恶魂等级
@@ -692,15 +692,21 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 检查是否启用效果云
         if (!config.enableEffectCloud) return;
         
+        // 获取快乐恶魂实体（用于检查附魔）
+        HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        
+        // 计算最终持续时间（考虑持久附魔）
+        int finalDuration = calculateEffectCloudDuration(ghast, config.cloudDuration);
+        
         // 创建效果云实体
         net.minecraft.entity.AreaEffectCloudEntity cloud = new net.minecraft.entity.AreaEffectCloudEntity(world, pos.x, pos.y, pos.z);
         
         // 设置基本属性
         cloud.setRadius(config.cloudRadius);  // 效果云半径
-        cloud.setDuration(config.cloudDuration);  // 持续时间
+        cloud.setDuration(finalDuration);  // 持续时间（已应用附魔）
         cloud.setRadiusOnUse(-0.5F);  // 每次作用时半径缩小量
         cloud.setWaitTime(10);  // 生成后延迟10 ticks才开始生效
-        cloud.setRadiusGrowth(-cloud.getRadius() / (float)cloud.getDuration());  // 半径随时间缓慢缩小
+        cloud.setRadiusGrowth(-cloud.getRadius() / (float)finalDuration);  // 半径随时间缓慢缩小
         
         // 设置粒子效果（使用治疗粒子）
         cloud.setParticleType(net.minecraft.particle.ParticleTypes.HAPPY_VILLAGER);
@@ -715,20 +721,20 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         );
         cloud.addEffect(damageEffect);
         
-        // 添加对玩家的生命恢复效果
+        // 添加对玩家的生命恢复效果（使用增强后的持续时间）
         net.minecraft.entity.effect.StatusEffectInstance regenEffect = new net.minecraft.entity.effect.StatusEffectInstance(
             net.minecraft.entity.effect.StatusEffects.REGENERATION,
-            config.cloudDuration,  // 持续整个效果云时间
+            finalDuration,  // 持续整个效果云时间（已应用附魔）
             config.regenAmplifier,  // 强度（0=I级，1=II级，2=III级）
             false,  // 不显示环境粒子
             true  // 在HUD显示图标
         );
         cloud.addEffect(regenEffect);
         
-        // 添加速度提升效果给玩家（小幅度）
+        // 添加速度提升效果给玩家（小幅度，使用增强后的持续时间）
         net.minecraft.entity.effect.StatusEffectInstance speedEffect = new net.minecraft.entity.effect.StatusEffectInstance(
             net.minecraft.entity.effect.StatusEffects.SPEED,
-            config.cloudDuration / 2,  // 持续一半时间
+            finalDuration / 2,  // 持续一半时间（已应用附魔）
             0,  // I级速度
             false,
             true
@@ -737,5 +743,44 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         
         // 生成效果云
         world.spawnEntity(cloud);
+    }
+    
+    /**
+     * 计算效果云持续时间（考虑持久附魔）
+     * @param ghast 快乐恶魂实体
+     * @param baseDuration 基础持续时间
+     * @return 最终持续时间
+     */
+    @Unique
+    private int calculateEffectCloudDuration(HappyGhastEntity ghast, int baseDuration) {
+        // 检查持久附魔等级
+        int durationLevel = me.noramibu.enchantment.EnchantmentHelper.getEnchantmentLevel(
+            ghast, 
+            me.noramibu.enchantment.FireballEnchantment.DURATION
+        );
+        
+        if (durationLevel <= 0) {
+            // 没有持久附魔，返回基础时间
+            return baseDuration;
+        }
+        
+        // 根据附魔等级计算倍数
+        float multiplier;
+        switch (durationLevel) {
+            case 1:
+                multiplier = 1.5f;  // I级：1.5倍
+                break;
+            case 2:
+                multiplier = 2.0f;  // II级：2倍
+                break;
+            case 3:
+                multiplier = 3.0f;  // III级：3倍
+                break;
+            default:
+                multiplier = 1.0f;
+        }
+        
+        // 返回增强后的持续时间
+        return Math.round(baseDuration * multiplier);
     }
 }
