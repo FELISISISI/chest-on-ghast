@@ -242,33 +242,15 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             double deltaY = targetY - this.ghast.getY();
             double deltaZ = targetZ - this.ghast.getZ();
             
-            // 创建火球实体，使用配置的威力值
-            FireballEntity fireball = new FireballEntity(
-                this.ghast.getEntityWorld(),
-                this.ghast,
-                new Vec3d(deltaX, deltaY, deltaZ),
-                fireballPower // 火球威力（爆炸强度），随等级提升
+            Vec3d direction = new Vec3d(deltaX, deltaY, deltaZ);
+            
+            // 使用附魔辅助类发射火球（支持连射等附魔）
+            me.noramibu.enchantment.EnchantmentHelper.shootFireballWithEnchantments(
+                this.ghast, 
+                direction, 
+                fireballPower, 
+                this.targetHostile
             );
-            
-            // 设置火球位置（从快乐恶魂中心发射）
-            fireball.setPosition(
-                this.ghast.getX(),
-                this.ghast.getY() + this.ghast.getHeight() / 2.0,
-                this.ghast.getZ()
-            );
-            
-            // 生成火球实体
-            this.ghast.getEntityWorld().spawnEntity(fireball);
-            
-            // 播放发射音效
-            this.ghast.playSound(SoundEvents.ENTITY_GHAST_SHOOT, 10.0f, 
-                (this.ghast.getRandom().nextFloat() - this.ghast.getRandom().nextFloat()) * 0.2f + 1.0f);
-            
-            // 如果是3级及以上，记录火球用于后续生成效果云
-            if (currentLevel >= 3) {
-                HappyGhastEntityMixin mixin = (HappyGhastEntityMixin) (Object) this.ghast;
-                mixin.trackFireball(fireball, currentLevel);
-            }
         }
     }
     

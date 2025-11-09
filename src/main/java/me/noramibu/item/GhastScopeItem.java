@@ -67,64 +67,29 @@ public class GhastScopeItem extends Item {
     }
     
     /**
-     * 发射玩家控制的火球
+     * 发射玩家控制的火球（支持附魔效果）
      * @param ghast 快乐恶魂实体
      * @param player 玩家
      */
     private void shootPlayerControlledFireball(net.minecraft.entity.passive.HappyGhastEntity ghast, PlayerEntity player) {
         // 获取玩家视线方向
-        net.minecraft.util.math.Vec3d lookVec = player.getRotationVec(1.0F);
-        
-        // 计算火球发射方向
-        double dirX = lookVec.x;
-        double dirY = lookVec.y;
-        double dirZ = lookVec.z;
+        net.minecraft.util.math.Vec3d direction = player.getRotationVec(1.0F);
         
         // 获取快乐恶魂的等级和火球威力
         int fireballPower = 1; // 默认威力
-        int level = 1; // 默认等级
         
         // 尝试获取快乐恶魂的等级数据
         if (ghast instanceof me.noramibu.accessor.HappyGhastDataAccessor accessor) {
-            level = accessor.getGhastData().getLevel();
+            int level = accessor.getGhastData().getLevel();
             fireballPower = me.noramibu.level.LevelConfig.getFireballPower(level);
         }
         
-        // 创建火球实体
-        net.minecraft.entity.projectile.FireballEntity fireball = new net.minecraft.entity.projectile.FireballEntity(
-            ghast.getEntityWorld(),
-            ghast,
-            new net.minecraft.util.math.Vec3d(dirX, dirY, dirZ),
-            fireballPower
-        );
-        
-        // 设置火球位置（从快乐恶魂中心稍微往前发射）
-        fireball.setPosition(
-            ghast.getX() + dirX * 2.0,
-            ghast.getY() + ghast.getHeight() / 2.0,
-            ghast.getZ() + dirZ * 2.0
-        );
-        
-        // 生成火球
-        ghast.getEntityWorld().spawnEntity(fireball);
-        
-        // 如果是3级及以上，记录火球用于后续生成效果云
-        if (level >= 3) {
-            // 通过反射或直接调用来追踪火球（因为HappyGhastEntity被Mixin增强）
-            try {
-                java.lang.reflect.Method trackMethod = ghast.getClass().getMethod("trackFireball", 
-                    net.minecraft.entity.projectile.FireballEntity.class, int.class);
-                trackMethod.invoke(ghast, fireball, level);
-            } catch (Exception e) {
-                // 如果反射失败，忽略
-            }
-        }
-        
-        // 播放发射音效
-        ghast.playSound(
-            net.minecraft.sound.SoundEvents.ENTITY_GHAST_SHOOT,
-            10.0f,
-            (ghast.getRandom().nextFloat() - ghast.getRandom().nextFloat()) * 0.2f + 1.0f
+        // 使用附魔辅助类发射火球（支持连射等附魔）
+        me.noramibu.enchantment.EnchantmentHelper.shootFireballWithEnchantments(
+            ghast, 
+            direction, 
+            fireballPower, 
+            null  // 玩家控制的火球没有特定目标
         );
         
         // 给玩家反馈消息
