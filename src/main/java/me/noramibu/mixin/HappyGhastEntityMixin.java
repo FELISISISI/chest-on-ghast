@@ -492,6 +492,11 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
      */
     @Unique
     private void spawnEffectCloud(net.minecraft.world.World world, Vec3d pos, int level) {
+        // 只在服务端生成效果云
+        if (!(world instanceof ServerWorld)) {
+            return;
+        }
+        
         // 获取等级配置
         me.noramibu.config.GhastConfig.LevelConfig config = me.noramibu.config.GhastConfig.getInstance().getLevelConfig(level);
         
@@ -555,15 +560,9 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             cloud.setParticleType(net.minecraft.particle.ParticleTypes.HAPPY_VILLAGER);
         }
         
-        // 添加对怪物的伤害效果（瞬间伤害）
-        net.minecraft.entity.effect.StatusEffectInstance damageEffect = new net.minecraft.entity.effect.StatusEffectInstance(
-            net.minecraft.entity.effect.StatusEffects.INSTANT_DAMAGE,
-            1,  // 持续时间1 tick（瞬间效果）
-            config.damageAmplifier,  // 强度（0=I级，1=II级）
-            false,  // 不显示环境粒子
-            false  // 不在HUD显示图标
-        );
-        cloud.addEffect(damageEffect);
+        // 对怪物不添加伤害效果，因为会导致AI异常
+        // 火球本身的爆炸已经能造成伤害了
+        // 效果云仅用于给玩家提供增益效果或特殊附魔效果
         
         // 添加冰冻效果（如果有冰冻附魔）
         if (freezingLevel > 0) {
