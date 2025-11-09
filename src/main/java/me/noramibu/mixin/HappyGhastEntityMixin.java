@@ -1,8 +1,6 @@
 package me.noramibu.mixin;
 
 import me.noramibu.accessor.HappyGhastDataAccessor;
-import me.noramibu.ai.AttackHostilesGoal;
-import me.noramibu.ai.FollowPlayerWithFoodGoal;
 import me.noramibu.data.HappyGhastData;
 import me.noramibu.level.LevelConfig;
 import me.noramibu.network.SyncGhastDataPayload;
@@ -93,6 +91,14 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     @Unique
     private final java.util.Set<Integer> polymorphedEntities = new java.util.HashSet<>();
     
+    // 战斗系统：冷却计数器
+    @Unique
+    private int attackCooldown = 0;
+    
+    // 战斗系统：当前攻击目标
+    @Unique
+    private LivingEntity currentTarget = null;
+    
     // 这个构造函数仅为了满足编译，永远不会被调用
     protected HappyGhastEntityMixin(net.minecraft.entity.EntityType<? extends net.minecraft.entity.mob.MobEntity> entityType, net.minecraft.world.World world) {
         super(entityType, world);
@@ -119,35 +125,29 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     
     /**
      * 注入到实体初始化方法
-     * 在实体创建时初始化数据和AI行为
+     * 在实体创建时初始化数据
      */
     @Inject(method = "<init>", at = @At("RETURN"))
     private void onInit(CallbackInfo ci) {
         // 初始化快乐恶魂数据
         this.ghastData = new HappyGhastData();
         
-        // 添加AI行为
-        HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
-        
-        // 关键修复：只在服务端添加AI Goal
-        // AI Goal 只应该在服务端运行，客户端只是渲染
-        // 注意：在构造函数中world可能为null，所以要检查
-        if (ghast.getEntityWorld() != null && ghast.getEntityWorld() instanceof ServerWorld) {
-            // 优先级1：攻击附近的敌对生物（保护玩家）
-            this.goalSelector.add(1, new AttackHostilesGoal(ghast));
-            
-            // 优先级3：跟随手持食物的玩家
-            this.goalSelector.add(3, new FollowPlayerWithFoodGoal(ghast, 1.0, 6.0f, 3.0f));
-        }
+        // 战斗系统直接在tick中实现，不使用AI Goal
+        // 跟随系统也在tick中实现
     }
     
     /**
      * 注入到tick方法
-     * 每个游戏tick都会执行，用于更新饱食度和血量上限
+     * 每个游戏tick都会执行，用于更新饱食度、血量上限和战斗逻辑
      */
     @Inject(method = "tick", at = @At("HEAD"))
     private void onTick(CallbackInfo ci) {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        
+        // === 战斗系统（只在服务端执行） ===
+        if (ghast.getEntityWorld() instanceof ServerWorld) {
+            handleCombat(ghast);
+        }
         
         // 安全检查：确保实体和世界有效
         if (ghast.isRemoved() || ghast.getEntityWorld() == null) {
@@ -206,6 +206,87 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 polymorphTickCounter = 0;
             }
         }
+    }
+    
+    /**
+     * 战斗系统：处理攻击逻辑
+     * 直接在tick中调用，不使用AI Goal
+     */
+    @Unique
+    private void handleCombat(HappyGhastEntity ghast) {
+        // 冷却时间递减
+        if (this.attackCooldown > 0) {
+            this.attackCooldown--;
+            return; // 冷却中，不执行任何操作
+        }
+        
+        // 查找目标
+        if (this.currentTarget == null || !this.currentTarget.isAlive() || ghast.squaredDistanceTo(this.currentTarget) > 256.0) {
+            // 目标无效，寻找新目标
+            this.currentTarget = findNearestHostile(ghast);
+            if (this.currentTarget == null) {
+                return; // 没有目标
+            }
+        }
+        
+        // 检查距离
+        double distance = ghast.squaredDistanceTo(this.currentTarget);
+        if (distance > 256.0) { // 16格的平方
+            this.currentTarget = null;
+            return;
+        }
+        
+        // 发射火球
+        shootFireballAtTarget(ghast, this.currentTarget);
+        
+        // 设置冷却时间
+        int currentLevel = this.ghastData.getLevel();
+        this.attackCooldown = LevelConfig.getAttackCooldown(currentLevel);
+    }
+    
+    /**
+     * 查找最近的敌对生物
+     */
+    @Unique
+    private LivingEntity findNearestHostile(HappyGhastEntity ghast) {
+        Box searchBox = ghast.getBoundingBox().expand(16.0);
+        List<HostileEntity> hostiles = ghast.getEntityWorld().getEntitiesByClass(
+            HostileEntity.class,
+            searchBox,
+            entity -> entity.isAlive() && !entity.isSpectator()
+        );
+        
+        if (hostiles.isEmpty()) {
+            return null;
+        }
+        
+        // 找最近的
+        return hostiles.stream()
+            .min(Comparator.comparingDouble(hostile -> hostile.squaredDistanceTo(ghast)))
+            .orElse(null);
+    }
+    
+    /**
+     * 向目标发射火球
+     */
+    @Unique
+    private void shootFireballAtTarget(HappyGhastEntity ghast, LivingEntity target) {
+        // 计算方向
+        double deltaX = target.getX() - ghast.getX();
+        double deltaY = target.getBodyY(0.5) - ghast.getY();
+        double deltaZ = target.getZ() - ghast.getZ();
+        Vec3d direction = new Vec3d(deltaX, deltaY, deltaZ);
+        
+        // 获取火球威力
+        int fireballPower = LevelConfig.getFireballPower(this.ghastData.getLevel());
+        
+        // 发射火球（使用附魔辅助类）
+        me.noramibu.enchantment.EnchantmentHelper.shootFireballWithEnchantments(
+            ghast, 
+            direction, 
+            fireballPower, 
+            target
+        );
     }
     
     /**
