@@ -45,5 +45,10 @@
   
   "enchantment.chest-on-ghast.duration": "持久",
   "enchantment.chest-on-ghast.duration.desc": "效果云持续时间倍增",
-  "enchantment.chest-on-ghast.duration.effect": "持续时间 %s"
+  "enchantment.chest-on-ghast.duration.effect": "持续时间 %s",
+  
+  "gui.chest-on-ghast.enchantments": "火球附魔",
+  "gui.chest-on-ghast.enchantment.edit": "编辑附魔",
+  "gui.chest-on-ghast.enchantment.slots": "附魔槽位",
+  "gui.chest-on-ghast.enchantment.done": "完成"
 }

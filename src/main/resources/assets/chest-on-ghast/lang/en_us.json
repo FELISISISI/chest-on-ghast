@@ -45,5 +45,10 @@
   
   "enchantment.chest-on-ghast.duration": "Duration",
   "enchantment.chest-on-ghast.duration.desc": "Effect cloud lasts longer",
-  "enchantment.chest-on-ghast.duration.effect": "Duration %s"
+  "enchantment.chest-on-ghast.duration.effect": "Duration %s",
+  
+  "gui.chest-on-ghast.enchantments": "Fireball Enchantments",
+  "gui.chest-on-ghast.enchantment.edit": "Edit Enchantments",
+  "gui.chest-on-ghast.enchantment.slots": "Enchantment Slots",
+  "gui.chest-on-ghast.enchantment.done": "Done"
 }
