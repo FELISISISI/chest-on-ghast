@@ -182,6 +182,9 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             // 确保血量上限正确
             updateMaxHealth(ghast);
             
+            // === 临时禁用所有附魔和效果云系统 ===
+            // TODO: 等基础战斗系统正常后再逐步启用
+            /*
             // 检查并处理火球击中后的效果云生成
             checkAndSpawnEffectClouds(ghast);
             
@@ -205,6 +208,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 processPolymorphClouds(ghast);
                 polymorphTickCounter = 0;
             }
+            */
         }
     }
     
@@ -214,6 +218,11 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
      */
     @Unique
     private void handleCombat(HappyGhastEntity ghast) {
+        // === 调试日志1：显示当前冷却时间 ===
+        if (this.attackCooldown % 20 == 0 && this.attackCooldown > 0) {
+            System.out.println("[DEBUG] 冷却中: " + this.attackCooldown + " ticks 剩余");
+        }
+        
         // 冷却时间递减
         if (this.attackCooldown > 0) {
             this.attackCooldown--;
@@ -236,12 +245,23 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             return;
         }
         
+        // === 调试日志2：准备发射 ===
+        System.out.println("[DEBUG] ========================================");
+        System.out.println("[DEBUG] 准备发射火球！");
+        System.out.println("[DEBUG] 当前等级: " + this.ghastData.getLevel());
+        System.out.println("[DEBUG] 目标: " + this.currentTarget.getName().getString());
+        
         // 发射火球
         shootFireballAtTarget(ghast, this.currentTarget);
         
         // 设置冷却时间
         int currentLevel = this.ghastData.getLevel();
         this.attackCooldown = LevelConfig.getAttackCooldown(currentLevel);
+        
+        // === 调试日志3：发射完成 ===
+        System.out.println("[DEBUG] 火球已发射！");
+        System.out.println("[DEBUG] 冷却时间已设置为: " + this.attackCooldown + " ticks");
+        System.out.println("[DEBUG] ========================================");
     }
     
     /**
@@ -280,13 +300,27 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 获取火球威力
         int fireballPower = LevelConfig.getFireballPower(this.ghastData.getLevel());
         
-        // 发射火球（使用附魔辅助类）
-        me.noramibu.enchantment.EnchantmentHelper.shootFireballWithEnchantments(
-            ghast, 
-            direction, 
-            fireballPower, 
-            target
+        // === 最小化版本：直接创建火球，不使用附魔系统 ===
+        Vec3d normalizedDir = direction.normalize();
+        
+        FireballEntity fireball = new FireballEntity(
+            ghast.getEntityWorld(),
+            ghast,
+            normalizedDir,
+            fireballPower
         );
+        
+        double spawnX = ghast.getX() + normalizedDir.x * 2.0;
+        double spawnY = ghast.getY() + ghast.getHeight() / 2.0;
+        double spawnZ = ghast.getZ() + normalizedDir.z * 2.0;
+        fireball.setPosition(spawnX, spawnY, spawnZ);
+        
+        boolean spawned = ghast.getEntityWorld().spawnEntity(fireball);
+        
+        System.out.println("[DEBUG] 火球实体创建: " + (spawned ? "成功" : "失败"));
+        
+        // 播放音效
+        ghast.playSound(net.minecraft.sound.SoundEvents.ENTITY_GHAST_SHOOT, 10.0f, 1.0f);
     }
     
     /**
