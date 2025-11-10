@@ -271,18 +271,39 @@ public class HappyGhastData {
     public static HappyGhastData readFromNbt(NbtCompound nbt) {
         HappyGhastData data = new HappyGhastData();
         
-        // 使用Optional处理NBT读取
-        data.level = nbt.contains("Level") ? nbt.getInt("Level").orElse(1) : 1;
-        data.experience = nbt.contains("Experience") ? nbt.getInt("Experience").orElse(0) : 0;
-        data.hunger = nbt.contains("Hunger") ? nbt.getFloat("Hunger").orElse(LevelConfig.getLevelData(1).getMaxHunger()) : LevelConfig.getLevelData(1).getMaxHunger();
-        data.lastHungerDecayTime = nbt.contains("LastHungerDecayTime") ? nbt.getLong("LastHungerDecayTime").orElse(System.currentTimeMillis()) : System.currentTimeMillis();
+        // 正确的NBT读取方式（无Optional）
+        if (nbt.contains("Level")) {
+            data.level = nbt.getInt("Level");
+            // 验证范围
+            if (data.level < 1 || data.level > 6) {
+                data.level = 1;
+            }
+        }
+        
+        if (nbt.contains("Experience")) {
+            data.experience = nbt.getInt("Experience");
+            if (data.experience < 0) data.experience = 0;
+        }
+        
+        if (nbt.contains("Hunger")) {
+            data.hunger = nbt.getFloat("Hunger");
+            if (data.hunger < 0) data.hunger = 0;
+        } else {
+            data.hunger = LevelConfig.getLevelData(data.level).getMaxHunger();
+        }
+        
+        if (nbt.contains("LastHungerDecayTime")) {
+            data.lastHungerDecayTime = nbt.getLong("LastHungerDecayTime");
+        } else {
+            data.lastHungerDecayTime = System.currentTimeMillis();
+        }
         
         // 读取最喜欢的食物
         if (nbt.contains("FavoriteFoods")) {
-            NbtList foodList = nbt.getList("FavoriteFoods").orElse(new NbtList());
+            NbtList foodList = nbt.getList("FavoriteFoods", 8);  // 8 = String类型
             data.favoriteFoods = new ArrayList<>();
             for (int i = 0; i < foodList.size(); i++) {
-                foodList.getString(i).ifPresent(data.favoriteFoods::add);
+                data.favoriteFoods.add(foodList.getString(i));
             }
         }
         
@@ -293,16 +314,16 @@ public class HappyGhastData {
         
         // 读取自定义名字
         if (nbt.contains("CustomName")) {
-            data.customName = nbt.getString("CustomName").orElse("");
+            data.customName = nbt.getString("CustomName");
         }
         
         // 读取附魔数据
         if (nbt.contains("EnchantmentData")) {
             data.enchantmentData = new EnchantmentData();
-            NbtCompound enchantNbt = nbt.getCompound("EnchantmentData").orElse(null);
-            if (enchantNbt != null) {
-                data.enchantmentData.readFromNbt(enchantNbt);
-            }
+            NbtCompound enchantNbt = nbt.getCompound("EnchantmentData");
+            data.enchantmentData.readFromNbt(enchantNbt);
+        } else {
+            data.enchantmentData = new EnchantmentData();
         }
         
         return data;
