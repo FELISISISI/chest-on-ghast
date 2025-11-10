@@ -13,11 +13,11 @@ public interface HappyGhastDataAccessor {
      * 获取快乐恶魂数据
      * @return 快乐恶魂数据对象
      */
-    HappyGhastData getGhastData();
+    HappyGhastData getHappyGhastData();
     
     /**
      * 设置快乐恶魂数据
      * @param data 快乐恶魂数据对象
      */
-    void setGhastData(HappyGhastData data);
+    void setHappyGhastData(HappyGhastData data);
 }

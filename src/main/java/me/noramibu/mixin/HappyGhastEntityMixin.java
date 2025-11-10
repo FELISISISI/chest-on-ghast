@@ -78,6 +78,11 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         return this.ghastData;
     }
     
+    @Override
+    public void setHappyGhastData(HappyGhastData data) {
+        this.ghastData = data;
+    }
+    
     // ===== 主循环 =====
     
     @Inject(method = "tick", at = @At("HEAD"))
@@ -115,8 +120,8 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         
         // 服务端处理
         if (ghast.getEntityWorld() instanceof ServerWorld) {
-            // 喂食（检查是否是食物）
-            if (!stack.isEmpty() && stack.getItem().isFood() && !player.isSneaking()) {
+            // 喂食（检查是否是食物 - 使用FoodComponent判断）
+            if (!stack.isEmpty() && stack.get(net.minecraft.component.DataComponentTypes.FOOD) != null && !player.isSneaking()) {
                 handleFeeding(ghast, player, stack, data);
                 cir.setReturnValue(ActionResult.SUCCESS);
                 return;
@@ -126,13 +131,19 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             if (player.isSneaking() && stack.isEmpty()) {
                 if (player instanceof ServerPlayerEntity serverPlayer) {
                     // 同步数据到客户端
+                    LevelConfig.LevelData levelData = LevelConfig.getLevelData(data.getLevel());
                     ServerPlayNetworking.send(serverPlayer, new SyncGhastDataPayload(
                         ghast.getId(),
                         data.getLevel(),
                         data.getExperience(),
-                        data.getMaxHunger(),
                         data.getHunger(),
-                        data.getCustomName()
+                        levelData.getMaxHealth(),
+                        ghast.getHealth(),
+                        levelData.getMaxHunger(),
+                        levelData.getExpToNextLevel(),
+                        player.isCreative(),
+                        data.getFavoriteFoods(),
+                        data.getCustomName() != null ? data.getCustomName() : ""
                     ));
                 }
                 cir.setReturnValue(ActionResult.SUCCESS);

@@ -79,8 +79,8 @@ public class CombatSystem {
         if (currentTarget == null) return false;
         if (currentTarget.isRemoved()) return false;
         if (!currentTarget.isAlive()) return false;
-        if (currentTarget.getWorld() == null) return false;
-        if (currentTarget.getWorld() != ghast.getWorld()) return false;
+        if (currentTarget.getEntityWorld() == null) return false;
+        if (currentTarget.getEntityWorld() != ghast.getEntityWorld()) return false;
         
         try {
             double distanceSq = ghast.squaredDistanceTo(currentTarget);

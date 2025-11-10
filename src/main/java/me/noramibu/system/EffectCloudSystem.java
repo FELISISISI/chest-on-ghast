@@ -154,20 +154,25 @@ public class EffectCloudSystem {
         cloud.setRadiusGrowth(-cloud.getRadius() / finalDuration);
         
         // 根据附魔选择处理器（优先级：变形 > 引力 > 魅惑 > 冰冻 > 默认）
+        PolymorphProcessor polymorphProc = new PolymorphProcessor();
+        GravityProcessor gravityProc = new GravityProcessor();
+        CharmProcessor charmProc = new CharmProcessor();
+        FreezingProcessor freezingProc = new FreezingProcessor();
+        
         if (enchantments.has(FireballEnchantment.POLYMORPH)) {
-            PolymorphProcessor.applyToCloud(cloud, enchantments.getLevel(FireballEnchantment.POLYMORPH));
-            trackCloud(cloud, new PolymorphProcessor(), enchantments.getLevel(FireballEnchantment.POLYMORPH));
+            polymorphProc.applyToCloud(cloud, enchantments.getLevel(FireballEnchantment.POLYMORPH));
+            trackCloud(cloud, polymorphProc, enchantments.getLevel(FireballEnchantment.POLYMORPH));
         }
         else if (enchantments.has(FireballEnchantment.GRAVITY)) {
-            GravityProcessor.applyToCloud(cloud, enchantments.getLevel(FireballEnchantment.GRAVITY));
-            trackCloud(cloud, new GravityProcessor(), enchantments.getLevel(FireballEnchantment.GRAVITY));
+            gravityProc.applyToCloud(cloud, enchantments.getLevel(FireballEnchantment.GRAVITY));
+            trackCloud(cloud, gravityProc, enchantments.getLevel(FireballEnchantment.GRAVITY));
         }
         else if (enchantments.has(FireballEnchantment.CHARM)) {
-            CharmProcessor.applyToCloud(cloud, enchantments.getLevel(FireballEnchantment.CHARM));
-            trackCloud(cloud, new CharmProcessor(), enchantments.getLevel(FireballEnchantment.CHARM));
+            charmProc.applyToCloud(cloud, enchantments.getLevel(FireballEnchantment.CHARM));
+            trackCloud(cloud, charmProc, enchantments.getLevel(FireballEnchantment.CHARM));
         }
         else if (enchantments.has(FireballEnchantment.FREEZING)) {
-            FreezingProcessor.applyToCloud(cloud, enchantments.getLevel(FireballEnchantment.FREEZING));
+            freezingProc.applyToCloud(cloud, enchantments.getLevel(FireballEnchantment.FREEZING));
             // 冰冻效果不需要持续处理，只需要添加状态效果
         }
         else {

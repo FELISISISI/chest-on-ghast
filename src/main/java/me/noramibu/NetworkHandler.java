@@ -260,7 +260,7 @@ public class NetworkHandler {
     public static HappyGhastData getOrCreateGhastData(HappyGhastEntity ghast) {
         // 使用访问器接口获取数据
         if (ghast instanceof HappyGhastDataAccessor accessor) {
-            return accessor.getGhastData();
+            return accessor.getHappyGhastData();
         }
         // 如果访问器不可用，返回新数据（不应该发生）
         return new HappyGhastData();
@@ -276,7 +276,7 @@ public class NetworkHandler {
     public static void saveGhastData(HappyGhastEntity ghast, HappyGhastData data) {
         // 使用访问器接口设置数据
         if (ghast instanceof HappyGhastDataAccessor accessor) {
-            accessor.setGhastData(data);
+              accessor.setHappyGhastData(data);
         }
     }
 }

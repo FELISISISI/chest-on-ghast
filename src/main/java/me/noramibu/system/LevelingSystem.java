@@ -63,7 +63,7 @@ public class LevelingSystem {
      * @param data 数据
      */
     private static void updateMaxHealth(HappyGhastEntity ghast, HappyGhastData data) {
-        EntityAttributeInstance healthAttribute = ghast.getAttributeInstance(EntityAttributes.GENERIC_MAX_HEALTH);
+        EntityAttributeInstance healthAttribute = ghast.getAttributeInstance(EntityAttributes.MAX_HEALTH);
         if (healthAttribute != null) {
             float expectedMaxHealth = data.getMaxHealth();
             if (healthAttribute.getBaseValue() != expectedMaxHealth) {

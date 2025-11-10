@@ -93,6 +93,13 @@ public class EnchantmentData {
     }
     
     /**
+     * 检查是否有指定附魔（新增方法，供System使用）
+     */
+    public boolean has(FireballEnchantment enchantment) {
+        return hasEnchantment(enchantment);
+    }
+    
+    /**
      * 检查是否有指定附魔
      */
     public boolean hasEnchantment(FireballEnchantment enchantment) {
@@ -102,6 +109,13 @@ public class EnchantmentData {
             }
         }
         return false;
+    }
+    
+    /**
+     * 获取指定附魔的等级（新增方法，供System使用）
+     */
+    public int getLevel(FireballEnchantment enchantment) {
+        return getEnchantmentLevel(enchantment);
     }
     
     /**
@@ -152,24 +166,21 @@ public class EnchantmentData {
     public void readFromNbt(NbtCompound nbt) {
         enchantmentSlots.clear();
         
-        if (nbt.contains("Enchantments")) {
-            NbtList enchantmentList = nbt.getList("Enchantments").orElse(new NbtList());
-            
+        nbt.getList("Enchantments").ifPresent(enchantmentList -> {
             for (int i = 0; i < enchantmentList.size(); i++) {
-                NbtCompound slotNbt = enchantmentList.getCompound(i).orElse(null);
-                if (slotNbt == null) continue;
-                
-                int slot = slotNbt.getInt("Slot").orElse(0);
-                String enchantmentId = slotNbt.getString("Enchantment").orElse("");
-                int level = slotNbt.getInt("Level").orElse(1);
-                
-                FireballEnchantment enchantment = FireballEnchantment.fromId(enchantmentId);
-                if (enchantment != null) {
-                    // 重新创建附魔书物品栈
-                    ItemStack bookStack = me.noramibu.item.EnchantedFireballBookItem.create(enchantment, level);
-                    enchantmentSlots.put(slot, new EnchantmentSlot(enchantment, level, bookStack));
-                }
+                enchantmentList.getCompound(i).ifPresent(slotNbt -> {
+                    int slot = slotNbt.getInt("Slot").orElse(0);
+                    String enchantmentId = slotNbt.getString("Enchantment").orElse("");
+                    int level = slotNbt.getInt("Level").orElse(1);
+                    
+                    FireballEnchantment enchantment = FireballEnchantment.fromId(enchantmentId);
+                    if (enchantment != null) {
+                        // 重新创建附魔书物品栈
+                        ItemStack bookStack = me.noramibu.item.EnchantedFireballBookItem.create(enchantment, level);
+                        enchantmentSlots.put(slot, new EnchantmentSlot(enchantment, level, bookStack));
+                    }
+                });
             }
-        }
+        });
     }
 }

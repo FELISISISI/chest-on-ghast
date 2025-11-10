@@ -219,7 +219,7 @@ public class EnchantmentHelper {
      */
     private static EnchantmentData getEnchantmentData(HappyGhastEntity ghast) {
         if (ghast instanceof HappyGhastDataAccessor accessor) {
-            HappyGhastData data = accessor.getGhastData();
+            HappyGhastData data = accessor.getHappyGhastData();
             return data != null ? data.getEnchantmentData() : null;
         }
         return null;
@@ -247,7 +247,7 @@ public class EnchantmentHelper {
     private static void trackFireballForEffectCloud(HappyGhastEntity ghast, FireballEntity fireball) {
         // 获取恶魂等级
         if (ghast instanceof HappyGhastDataAccessor accessor) {
-            HappyGhastData data = accessor.getGhastData();
+            HappyGhastData data = accessor.getHappyGhastData();
             int level = data.getLevel();
             
             // 如果等级>=3，追踪火球

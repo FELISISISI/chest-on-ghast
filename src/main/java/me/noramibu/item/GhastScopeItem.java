@@ -80,7 +80,7 @@ public class GhastScopeItem extends Item {
         
         // 尝试获取快乐恶魂的等级数据
         if (ghast instanceof me.noramibu.accessor.HappyGhastDataAccessor accessor) {
-            int level = accessor.getGhastData().getLevel();
+            int level = accessor.getHappyGhastData().getLevel();
             fireballPower = me.noramibu.level.LevelConfig.getFireballPower(level);
         }
         
