@@ -1,5 +1,6 @@
 package me.noramibu.data;
 
+import me.noramibu.enchantment.EnchantmentData;
 import me.noramibu.level.LevelConfig;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
@@ -32,6 +33,9 @@ public class HappyGhastData {
     // 自定义名字
     private String customName;
     
+    // 附魔数据
+    private EnchantmentData enchantmentData;
+    
     // 所有可能的食物列表
     private static final String[] ALL_FOODS = {
         "minecraft:apple", "minecraft:golden_apple", "minecraft:enchanted_golden_apple",
@@ -60,6 +64,7 @@ public class HappyGhastData {
         this.hunger = levelData.getMaxHunger();
         this.lastHungerDecayTime = System.currentTimeMillis();
         this.favoriteFoods = generateRandomFavoriteFoods();
+        this.enchantmentData = new EnchantmentData();
     }
     
     /**
@@ -74,6 +79,7 @@ public class HappyGhastData {
         this.hunger = hunger;
         this.lastHungerDecayTime = System.currentTimeMillis();
         this.favoriteFoods = generateRandomFavoriteFoods();
+        this.enchantmentData = new EnchantmentData();
     }
     
     // Getter方法
@@ -82,6 +88,7 @@ public class HappyGhastData {
     public float getHunger() { return hunger; }
     public List<String> getFavoriteFoods() { return favoriteFoods; }
     public String getCustomName() { return customName; }
+    public EnchantmentData getEnchantmentData() { return enchantmentData; }
     
     // Setter方法
     public void setCustomName(String name) { this.customName = name; }
@@ -248,6 +255,11 @@ public class HappyGhastData {
         if (customName != null && !customName.isEmpty()) {
             nbt.putString("CustomName", customName);
         }
+        
+        // 保存附魔数据
+        if (enchantmentData != null) {
+            nbt.put("EnchantmentData", enchantmentData.writeToNbt());
+        }
     }
     
     /**
@@ -259,20 +271,27 @@ public class HappyGhastData {
     public static HappyGhastData readFromNbt(NbtCompound nbt) {
         HappyGhastData data = new HappyGhastData();
         
-        // 使用Optional处理NBT读取
-        data.level = nbt.contains("Level") ? nbt.getInt("Level").orElse(1) : 1;
-        data.experience = nbt.contains("Experience") ? nbt.getInt("Experience").orElse(0) : 0;
-        data.hunger = nbt.contains("Hunger") ? nbt.getFloat("Hunger").orElse(LevelConfig.getLevelData(1).getMaxHunger()) : LevelConfig.getLevelData(1).getMaxHunger();
-        data.lastHungerDecayTime = nbt.contains("LastHungerDecayTime") ? nbt.getLong("LastHungerDecayTime").orElse(System.currentTimeMillis()) : System.currentTimeMillis();
+        // NBT读取（使用Optional API）
+        data.level = nbt.getInt("Level").orElse(1);
+        if (data.level < 1 || data.level > 6) {
+            data.level = 1;
+        }
+        
+        data.experience = nbt.getInt("Experience").orElse(0);
+        if (data.experience < 0) data.experience = 0;
+        
+        data.hunger = nbt.getFloat("Hunger").orElse(LevelConfig.getLevelData(data.level).getMaxHunger());
+        if (data.hunger < 0) data.hunger = 0;
+        
+        data.lastHungerDecayTime = nbt.getLong("LastHungerDecayTime").orElse(System.currentTimeMillis());
         
         // 读取最喜欢的食物
-        if (nbt.contains("FavoriteFoods")) {
-            NbtList foodList = nbt.getList("FavoriteFoods").orElse(new NbtList());
+        nbt.getList("FavoriteFoods").ifPresent(foodList -> {
             data.favoriteFoods = new ArrayList<>();
             for (int i = 0; i < foodList.size(); i++) {
                 foodList.getString(i).ifPresent(data.favoriteFoods::add);
             }
-        }
+        });
         
         // 如果没有最喜欢的食物或数量不足3个，重新生成
         if (data.favoriteFoods == null || data.favoriteFoods.size() != 3) {
@@ -280,9 +299,13 @@ public class HappyGhastData {
         }
         
         // 读取自定义名字
-        if (nbt.contains("CustomName")) {
-            data.customName = nbt.getString("CustomName").orElse("");
-        }
+        nbt.getString("CustomName").ifPresent(name -> data.customName = name);
+        
+        // 读取附魔数据
+        data.enchantmentData = new EnchantmentData();
+        nbt.getCompound("EnchantmentData").ifPresent(enchantNbt -> {
+            data.enchantmentData.readFromNbt(enchantNbt);
+        });
         
         return data;
     }
@@ -296,6 +319,12 @@ public class HappyGhastData {
         copy.lastHungerDecayTime = this.lastHungerDecayTime;
         copy.favoriteFoods = new ArrayList<>(this.favoriteFoods);
         copy.customName = this.customName;
+        
+        // 复制附魔数据
+        NbtCompound enchantNbt = this.enchantmentData.writeToNbt();
+        copy.enchantmentData = new EnchantmentData();
+        copy.enchantmentData.readFromNbt(enchantNbt);
+        
         return copy;
     }
 }

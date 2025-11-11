@@ -18,13 +18,15 @@ public class LevelConfig {
         private final float maxHunger;
         private final int expToNextLevel;
         private final float hungerDecayRate;
+        private final GhastConfig.LevelConfig config;  // 保存原始配置引用
         
-        public LevelData(int level, float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayRate) {
+        public LevelData(int level, float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayRate, GhastConfig.LevelConfig config) {
             this.level = level;
             this.maxHealth = maxHealth;
             this.maxHunger = maxHunger;
             this.expToNextLevel = expToNextLevel;
             this.hungerDecayRate = hungerDecayRate;
+            this.config = config;
         }
         
         public int getLevel() { return level; }
@@ -32,6 +34,13 @@ public class LevelConfig {
         public float getMaxHunger() { return maxHunger; }
         public int getExpToNextLevel() { return expToNextLevel; }
         public float getHungerDecayRate() { return hungerDecayRate; }
+        
+        // 新增方法：获取效果云配置
+        public int getCloudDuration() { return config != null ? config.cloudDuration : 100; }
+        public float getCloudRadius() { return config != null ? config.cloudRadius : 3.0f; }
+        public boolean isEffectCloudEnabled() { return config != null && config.enableEffectCloud; }
+        public int getDamageAmplifier() { return config != null ? config.damageAmplifier : 0; }
+        public int getRegenAmplifier() { return config != null ? config.regenAmplifier : 0; }
     }
     
     /**
@@ -49,7 +58,8 @@ public class LevelConfig {
             config.maxHealth,
             config.maxHunger,
             config.expToNextLevel,
-            hungerDecayRate
+            hungerDecayRate,
+            config  // 传递config引用
         );
     }
     
@@ -104,5 +114,31 @@ public class LevelConfig {
         if (currentLevel >= MAX_LEVEL) return false;
         LevelData data = getLevelData(currentLevel);
         return currentExp >= data.getExpToNextLevel();
+    }
+    
+    /**
+     * 获取指定等级的火球威力
+     * @param level 等级
+     * @return 火球威力（爆炸强度）
+     */
+    public static int getFireballPower(int level) {
+        if (level < 1) level = 1;
+        if (level > MAX_LEVEL) level = MAX_LEVEL;
+        
+        GhastConfig.LevelConfig config = GhastConfig.getInstance().getLevelConfig(level);
+        return config.fireballPower;
+    }
+    
+    /**
+     * 获取指定等级的攻击冷却时间
+     * @param level 等级
+     * @return 攻击冷却时间（ticks，20 ticks = 1秒）
+     */
+    public static int getAttackCooldown(int level) {
+        if (level < 1) level = 1;
+        if (level > MAX_LEVEL) level = MAX_LEVEL;
+        
+        GhastConfig.LevelConfig config = GhastConfig.getInstance().getLevelConfig(level);
+        return config.attackCooldown;
     }
 }

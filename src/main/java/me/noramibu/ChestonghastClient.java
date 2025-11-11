@@ -2,6 +2,7 @@ package me.noramibu;
 
 import me.noramibu.gui.HappyGhastScreen;
 import me.noramibu.network.GreetGhastPayload;
+import me.noramibu.network.SyncEnchantmentDataPayload;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
@@ -61,6 +62,27 @@ public class ChestonghastClient implements ClientModInitializer {
                     } else {
                         // 否则打开新的GUI
                         client.setScreen(new HappyGhastScreen(payload));
+                    }
+                });
+            }
+        );
+        
+        // 注册附魔数据同步处理器
+        ClientPlayNetworking.registerGlobalReceiver(
+            SyncEnchantmentDataPayload.ID,
+            (payload, context) -> {
+                context.client().execute(() -> {
+                    MinecraftClient client = MinecraftClient.getInstance();
+                    
+                    // 如果当前打开的是HappyGhastScreen，更新附魔数据
+                    if (client.currentScreen instanceof HappyGhastScreen screen) {
+                        // 从NBT解析附魔数据
+                        me.noramibu.enchantment.EnchantmentData enchantmentData = 
+                            new me.noramibu.enchantment.EnchantmentData();
+                        enchantmentData.readFromNbt(payload.enchantmentData());
+                        
+                        // 更新GUI显示
+                        screen.updateEnchantmentData(enchantmentData);
                     }
                 });
             }

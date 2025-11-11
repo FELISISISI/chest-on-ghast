@@ -1,6 +1,7 @@
 package me.noramibu;
 
 import me.noramibu.config.GhastConfig;
+import me.noramibu.item.ModItems;
 import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -24,6 +25,9 @@ public class Chestonghast implements ModInitializer {
 	public void onInitialize() {
 		// 加载配置文件
 		GhastConfig.getInstance();
+		
+		// 注册模组物品
+		ModItems.registerModItems();
 		
 		// 注册服务端网络包接收器
 		// 用于处理客户端发送的按键事件

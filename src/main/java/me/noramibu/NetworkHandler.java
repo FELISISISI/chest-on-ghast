@@ -3,10 +3,13 @@ package me.noramibu;
 import me.noramibu.accessor.HappyGhastDataAccessor;
 import me.noramibu.data.HappyGhastData;
 import me.noramibu.network.GreetGhastPayload;
+import me.noramibu.network.OpenEnchantmentGuiPayload;
 import me.noramibu.network.OpenGhastGuiPayload;
 import me.noramibu.network.RenameGhastPayload;
 import me.noramibu.network.RequestGhastDataPayload;
+import me.noramibu.network.SyncEnchantmentDataPayload;
 import me.noramibu.network.SyncGhastDataPayload;
+import me.noramibu.network.UpdateEnchantmentPayload;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
@@ -56,6 +59,24 @@ public class NetworkHandler {
         PayloadTypeRegistry.playS2C().register(
             SyncGhastDataPayload.ID,
             SyncGhastDataPayload.CODEC
+        );
+        
+        // 注册打开附魔编辑GUI的网络包
+        PayloadTypeRegistry.playC2S().register(
+            OpenEnchantmentGuiPayload.ID,
+            OpenEnchantmentGuiPayload.CODEC
+        );
+        
+        // 注册更新附魔的网络包
+        PayloadTypeRegistry.playC2S().register(
+            UpdateEnchantmentPayload.ID,
+            UpdateEnchantmentPayload.CODEC
+        );
+        
+        // 注册同步附魔数据的网络包（服务端到客户端）
+        PayloadTypeRegistry.playS2C().register(
+            SyncEnchantmentDataPayload.ID,
+            SyncEnchantmentDataPayload.CODEC
         );
         
         // 注册问候快乐恶魂的处理器
@@ -239,7 +260,7 @@ public class NetworkHandler {
     public static HappyGhastData getOrCreateGhastData(HappyGhastEntity ghast) {
         // 使用访问器接口获取数据
         if (ghast instanceof HappyGhastDataAccessor accessor) {
-            return accessor.getGhastData();
+            return accessor.getHappyGhastData();
         }
         // 如果访问器不可用，返回新数据（不应该发生）
         return new HappyGhastData();
@@ -255,7 +276,7 @@ public class NetworkHandler {
     public static void saveGhastData(HappyGhastEntity ghast, HappyGhastData data) {
         // 使用访问器接口设置数据
         if (ghast instanceof HappyGhastDataAccessor accessor) {
-            accessor.setGhastData(data);
+              accessor.setHappyGhastData(data);
         }
     }
 }
