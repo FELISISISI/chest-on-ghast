@@ -4,6 +4,8 @@ import me.noramibu.accessor.HappyGhastDataAccessor;
 import me.noramibu.data.HappyGhastData;
 import me.noramibu.network.GreetGhastPayload;
 import me.noramibu.network.OpenGhastGuiPayload;
+import me.noramibu.network.RenameGhastPayload;
+import me.noramibu.network.RequestGhastDataPayload;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -36,6 +38,18 @@ public class NetworkHandler {
         PayloadTypeRegistry.playC2S().register(
             OpenGhastGuiPayload.ID,
             OpenGhastGuiPayload.CODEC
+        );
+        
+        // 注册请求数据的网络包（客户端到服务端）
+        PayloadTypeRegistry.playC2S().register(
+            RequestGhastDataPayload.ID,
+            RequestGhastDataPayload.CODEC
+        );
+        
+        // 注册改名的网络包（客户端到服务端）
+        PayloadTypeRegistry.playC2S().register(
+            RenameGhastPayload.ID,
+            RenameGhastPayload.CODEC
         );
         
         // 注册同步数据的网络包（服务端到客户端）
@@ -96,12 +110,82 @@ public class NetworkHandler {
                             data.getMaxHealth(),
                             ghast.getHealth(),
                             data.getMaxHunger(),
-                            data.getExpToNextLevel()
+                            data.getExpToNextLevel(),
+                            player.isCreative(),  // 玩家创造模式状态
+                            data.getFavoriteFoods(),  // 最喜欢的食物列表
+                            data.getCustomName() != null ? data.getCustomName() : ""  // 自定义名字
                         );
                         
                         ServerPlayNetworking.send(player, syncPayload);
                         
                         Chestonghast.LOGGER.info("玩家 {} 打开了快乐恶魂GUI", player.getName().getString());
+                    }
+                });
+            }
+        );
+        
+        // 注册请求数据的处理器
+        ServerPlayNetworking.registerGlobalReceiver(
+            RequestGhastDataPayload.ID,
+            (payload, context) -> {
+                context.server().execute(() -> {
+                    ServerPlayerEntity player = context.player();
+                    World world = player.getEntityWorld();
+                    Entity entity = world.getEntityById(payload.entityId());
+                    
+                    if (entity instanceof HappyGhastEntity ghast) {
+                        // 获取快乐恶魂的数据
+                        HappyGhastData data = getOrCreateGhastData(ghast);
+                        
+                        // 发送最新数据到客户端
+                        SyncGhastDataPayload syncPayload = new SyncGhastDataPayload(
+                            ghast.getId(),
+                            data.getLevel(),
+                            data.getExperience(),
+                            data.getHunger(),
+                            data.getMaxHealth(),
+                            ghast.getHealth(),
+                            data.getMaxHunger(),
+                            data.getExpToNextLevel(),
+                            player.isCreative(),
+                            data.getFavoriteFoods(),
+                            data.getCustomName() != null ? data.getCustomName() : ""
+                        );
+                        
+                        ServerPlayNetworking.send(player, syncPayload);
+                    }
+                });
+            }
+        );
+        
+        // 注册改名的处理器
+        ServerPlayNetworking.registerGlobalReceiver(
+            RenameGhastPayload.ID,
+            (payload, context) -> {
+                context.server().execute(() -> {
+                    ServerPlayerEntity player = context.player();
+                    World world = player.getEntityWorld();
+                    Entity entity = world.getEntityById(payload.entityId());
+                    
+                    if (entity instanceof HappyGhastEntity ghast) {
+                        // 获取快乐恶魂的数据
+                        HappyGhastData data = getOrCreateGhastData(ghast);
+                        
+                        // 设置自定义名字
+                        String newName = payload.newName();
+                        data.setCustomName(newName);
+                        
+                        // 在实体头上显示名字
+                        if (newName != null && !newName.isEmpty()) {
+                            ghast.setCustomName(Text.literal(newName));
+                            ghast.setCustomNameVisible(true);
+                        } else {
+                            ghast.setCustomName(null);
+                            ghast.setCustomNameVisible(false);
+                        }
+                        
+                        Chestonghast.LOGGER.info("玩家 {} 将快乐恶魂改名为：{}", 
+                            player.getName().getString(), newName);
                     }
                 });
             }

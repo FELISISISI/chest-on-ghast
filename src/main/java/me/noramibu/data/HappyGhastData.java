@@ -2,6 +2,11 @@ package me.noramibu.data;
 
 import me.noramibu.level.LevelConfig;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtList;
+import net.minecraft.nbt.NbtString;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
 
 /**
  * 快乐恶魂数据类
@@ -21,6 +26,29 @@ public class HappyGhastData {
     // 记录上次饱食度降低的时间（用于计算饱食度消耗）
     private long lastHungerDecayTime;
     
+    // 最喜欢的食物列表（3个）
+    private List<String> favoriteFoods;
+    
+    // 自定义名字
+    private String customName;
+    
+    // 所有可能的食物列表
+    private static final String[] ALL_FOODS = {
+        "minecraft:apple", "minecraft:golden_apple", "minecraft:enchanted_golden_apple",
+        "minecraft:melon_slice", "minecraft:sweet_berries", "minecraft:glow_berries",
+        "minecraft:carrot", "minecraft:golden_carrot", "minecraft:potato", "minecraft:baked_potato",
+        "minecraft:poisonous_potato", "minecraft:beetroot",
+        "minecraft:bread", "minecraft:cookie", "minecraft:pumpkin_pie", "minecraft:cake",
+        "minecraft:beef", "minecraft:cooked_beef", "minecraft:porkchop", "minecraft:cooked_porkchop",
+        "minecraft:mutton", "minecraft:cooked_mutton", "minecraft:chicken", "minecraft:cooked_chicken",
+        "minecraft:rabbit", "minecraft:cooked_rabbit", "minecraft:rabbit_stew",
+        "minecraft:cod", "minecraft:cooked_cod", "minecraft:salmon", "minecraft:cooked_salmon",
+        "minecraft:tropical_fish", "minecraft:pufferfish", "minecraft:dried_kelp",
+        "minecraft:mushroom_stew", "minecraft:beetroot_soup", "minecraft:suspicious_stew",
+        "minecraft:rotten_flesh", "minecraft:spider_eye", "minecraft:chorus_fruit",
+        "minecraft:honey_bottle"
+    };
+    
     /**
      * 默认构造函数
      * 初始化为等级1的新生快乐恶魂
@@ -31,6 +59,7 @@ public class HappyGhastData {
         LevelConfig.LevelData levelData = LevelConfig.getLevelData(1);
         this.hunger = levelData.getMaxHunger();
         this.lastHungerDecayTime = System.currentTimeMillis();
+        this.favoriteFoods = generateRandomFavoriteFoods();
     }
     
     /**
@@ -44,12 +73,42 @@ public class HappyGhastData {
         this.experience = experience;
         this.hunger = hunger;
         this.lastHungerDecayTime = System.currentTimeMillis();
+        this.favoriteFoods = generateRandomFavoriteFoods();
     }
     
     // Getter方法
     public int getLevel() { return level; }
     public int getExperience() { return experience; }
     public float getHunger() { return hunger; }
+    public List<String> getFavoriteFoods() { return favoriteFoods; }
+    public String getCustomName() { return customName; }
+    
+    // Setter方法
+    public void setCustomName(String name) { this.customName = name; }
+    
+    /**
+     * 检查某个食物是否为最喜欢的食物
+     */
+    public boolean isFavoriteFood(String foodItem) {
+        return favoriteFoods != null && favoriteFoods.contains(foodItem);
+    }
+    
+    /**
+     * 生成3个随机的最喜欢的食物
+     */
+    private List<String> generateRandomFavoriteFoods() {
+        List<String> favorites = new ArrayList<>();
+        Random random = new Random();
+        
+        while (favorites.size() < 3) {
+            String food = ALL_FOODS[random.nextInt(ALL_FOODS.length)];
+            if (!favorites.contains(food)) {
+                favorites.add(food);
+            }
+        }
+        
+        return favorites;
+    }
     
     /**
      * 获取当前等级的最大血量
@@ -175,6 +234,20 @@ public class HappyGhastData {
         nbt.putInt("Experience", experience);
         nbt.putFloat("Hunger", hunger);
         nbt.putLong("LastHungerDecayTime", lastHungerDecayTime);
+        
+        // 保存最喜欢的食物
+        if (favoriteFoods != null && !favoriteFoods.isEmpty()) {
+            NbtList foodList = new NbtList();
+            for (String food : favoriteFoods) {
+                foodList.add(NbtString.of(food));
+            }
+            nbt.put("FavoriteFoods", foodList);
+        }
+        
+        // 保存自定义名字
+        if (customName != null && !customName.isEmpty()) {
+            nbt.putString("CustomName", customName);
+        }
     }
     
     /**
@@ -187,10 +260,29 @@ public class HappyGhastData {
         HappyGhastData data = new HappyGhastData();
         
         // 使用Optional处理NBT读取
-        data.level = nbt.getInt("Level").orElse(1);
-        data.experience = nbt.getInt("Experience").orElse(0);
-        data.hunger = nbt.getFloat("Hunger").orElse(LevelConfig.getLevelData(1).getMaxHunger());
-        data.lastHungerDecayTime = nbt.getLong("LastHungerDecayTime").orElse(System.currentTimeMillis());
+        data.level = nbt.contains("Level") ? nbt.getInt("Level").orElse(1) : 1;
+        data.experience = nbt.contains("Experience") ? nbt.getInt("Experience").orElse(0) : 0;
+        data.hunger = nbt.contains("Hunger") ? nbt.getFloat("Hunger").orElse(LevelConfig.getLevelData(1).getMaxHunger()) : LevelConfig.getLevelData(1).getMaxHunger();
+        data.lastHungerDecayTime = nbt.contains("LastHungerDecayTime") ? nbt.getLong("LastHungerDecayTime").orElse(System.currentTimeMillis()) : System.currentTimeMillis();
+        
+        // 读取最喜欢的食物
+        if (nbt.contains("FavoriteFoods")) {
+            NbtList foodList = nbt.getList("FavoriteFoods").orElse(new NbtList());
+            data.favoriteFoods = new ArrayList<>();
+            for (int i = 0; i < foodList.size(); i++) {
+                foodList.getString(i).ifPresent(data.favoriteFoods::add);
+            }
+        }
+        
+        // 如果没有最喜欢的食物或数量不足3个，重新生成
+        if (data.favoriteFoods == null || data.favoriteFoods.size() != 3) {
+            data.favoriteFoods = data.generateRandomFavoriteFoods();
+        }
+        
+        // 读取自定义名字
+        if (nbt.contains("CustomName")) {
+            data.customName = nbt.getString("CustomName").orElse("");
+        }
         
         return data;
     }
@@ -202,6 +294,8 @@ public class HappyGhastData {
     public HappyGhastData copy() {
         HappyGhastData copy = new HappyGhastData(this.level, this.experience, this.hunger);
         copy.lastHungerDecayTime = this.lastHungerDecayTime;
+        copy.favoriteFoods = new ArrayList<>(this.favoriteFoods);
+        copy.customName = this.customName;
         return copy;
     }
 }

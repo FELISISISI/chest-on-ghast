@@ -6,6 +6,11 @@
   "gui.chest-on-ghast.hunger": "饱食度",
   "gui.chest-on-ghast.experience": "经验值",
   "gui.chest-on-ghast.max_level": "满级",
+  "gui.chest-on-ghast.close_hint": "按ESC关闭",
+  "gui.chest-on-ghast.favorite_foods": "最喜欢的食物（创造模式）",
+  "gui.chest-on-ghast.favorite_foods_hint": "最喜欢的食物：",
+  "gui.chest-on-ghast.name_placeholder": "点击编辑名字",
   "message.chest-on-ghast.level_up": "快乐恶魂升级到了等级 %s！",
-  "message.chest-on-ghast.fed": "饱食度 +%s  经验 +%s"
+  "message.chest-on-ghast.fed": "饱食度 +%s  经验 +%s",
+  "message.chest-on-ghast.favorite_food": "❤ 快乐恶魂非常喜欢这个食物！ ❤"
 }

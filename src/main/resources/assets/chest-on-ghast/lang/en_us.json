@@ -5,7 +5,12 @@
   "gui.chest-on-ghast.health": "Health",
   "gui.chest-on-ghast.hunger": "Hunger",
   "gui.chest-on-ghast.experience": "Experience",
-  "gui.chest-on-ghast.max_level": "MAX",
+  "gui.chest-on-ghast.max_level": "MAX LEVEL",
+  "gui.chest-on-ghast.close_hint": "Press ESC to close",
+  "gui.chest-on-ghast.favorite_foods": "Favorite Foods (Creative Mode)",
+  "gui.chest-on-ghast.favorite_foods_hint": "Favorite Foods:",
+  "gui.chest-on-ghast.name_placeholder": "Click to edit name",
   "message.chest-on-ghast.level_up": "Happy Ghast leveled up to level %s!",
-  "message.chest-on-ghast.fed": "Hunger +%s  EXP +%s"
+  "message.chest-on-ghast.fed": "Hunger +%s  EXP +%s",
+  "message.chest-on-ghast.favorite_food": "❤ Happy Ghast LOVES this food! ❤"
 }

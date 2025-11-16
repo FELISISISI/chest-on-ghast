@@ -1,3 +1,5 @@
+留言：你该不会找到这里吧？！！！如果你找到了，请私信发给雅高li并给他的B站账号点关注。否则你开发mod就会遇到如下情形：
+
 [16:35:58] [main/INFO]: Loading Minecraft 1.21.9 with Fabric Loader 0.17.3
 [16:35:58] [main/INFO]: Loading 52 mods:
 	- chest-on-ghast 1.0.3
@@ -52,7 +54,7 @@
 	   |-- fabric-rendering-v1 16.0.2+91152d886f
 	   |-- fabric-resource-loader-v0 3.2.3+3388a3b26f
 	   \-- fabric-resource-loader-v1 1.0.3+8cc86c156f
-[16:35:59] [main/INFO]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/D:/Ѹ������/lisi/.minecraft/libraries/net/fabricmc/sponge-mixin/0.16.5+mixin.0.8.7/sponge-mixin-0.16.5+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
+[16:35:59] [main/INFO]: SpongePowered MIXIN Subsystem Version=0.8.7 Source=file:/D:/Ñ¸À×ÔÆÅÌ/lisi/.minecraft/libraries/net/fabricmc/sponge-mixin/0.16.5+mixin.0.8.7/sponge-mixin-0.16.5+mixin.0.8.7.jar Service=Knot/Fabric Env=CLIENT
 [16:35:59] [main/INFO]: Compatibility level set to JAVA_21
 [16:35:59] [main/INFO]: Loaded configuration file for Sodium: 42 options available, 0 override(s) found
 [16:35:59] [main/WARN]: Error loading class: net/raphimc/immediatelyfast/feature/core/BatchableBufferSource (java.lang.ClassNotFoundException: net/raphimc/immediatelyfast/feature/core/BatchableBufferSource)
@@ -82,3 +84,4 @@ java.lang.IllegalStateException: Can't getDevice() before it was initialized
 	at java.base/java.lang.reflect.Method.invoke(Method.java:580) ~[?:?]
 	at oolloo.jlw.Wrapper.invokeMain(Wrapper.java:112) [JavaWrapper.jar:?]
 	at oolloo.jlw.Wrapper.main(Wrapper.java:105) [JavaWrapper.jar:?]
+

@@ -47,14 +47,21 @@ public class ChestonghastClient implements ClientModInitializer {
         });
         
         // 注册客户端网络包接收器
-        // 接收服务端发送的快乐恶魂数据并打开GUI
+        // 接收服务端发送的快乐恶魂数据
         ClientPlayNetworking.registerGlobalReceiver(
             SyncGhastDataPayload.ID,
             (payload, context) -> {
                 // 在客户端主线程中执行，确保线程安全
                 context.client().execute(() -> {
-                    // 打开快乐恶魂GUI屏幕
-                    MinecraftClient.getInstance().setScreen(new HappyGhastScreen(payload));
+                    MinecraftClient client = MinecraftClient.getInstance();
+                    
+                    // 如果当前屏幕是HappyGhastScreen，更新数据
+                    if (client.currentScreen instanceof HappyGhastScreen screen) {
+                        screen.updateFromPayload(payload);
+                    } else {
+                        // 否则打开新的GUI
+                        client.setScreen(new HappyGhastScreen(payload));
+                    }
                 });
             }
         );
