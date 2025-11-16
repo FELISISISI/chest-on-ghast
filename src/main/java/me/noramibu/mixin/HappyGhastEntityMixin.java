@@ -182,13 +182,15 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     }
     
     // ===== NBT持久化 =====
+    // 注入到Entity类的基本NBT方法
+    // 使用require=0使其为可选的，并添加remap=true确保映射正确
     
-    @Inject(method = "writeNbt", at = @At("TAIL"))
+    @Inject(method = "writeNbt", at = @At("RETURN"), require = 0, remap = true)
     private void onWriteNbt(NbtCompound nbt, CallbackInfoReturnable<NbtCompound> cir) {
         getHappyGhastData().writeToNbt(nbt);
     }
     
-    @Inject(method = "readNbt", at = @At("TAIL"))
+    @Inject(method = "readNbt", at = @At("RETURN"), require = 0, remap = true)
     private void onReadNbt(NbtCompound nbt, CallbackInfo ci) {
         this.ghastData = HappyGhastData.readFromNbt(nbt);
     }
@@ -199,9 +201,11 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     }
     
     // ===== 清理 =====
+    // 注入到Entity.remove方法
+    // 使用require=0使其为可选的
     
-    @Inject(method = "onRemoved", at = @At("HEAD"))
-    private void onRemove(CallbackInfo ci) {
+    @Inject(method = "remove", at = @At("HEAD"), require = 0, remap = true)
+    private void onRemove(net.minecraft.entity.Entity.RemovalReason reason, CallbackInfo ci) {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         
         // 清理系统
