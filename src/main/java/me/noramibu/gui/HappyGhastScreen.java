@@ -144,18 +144,19 @@ public class HappyGhastScreen extends Screen {
         int startX = centerX - totalWidth / 2;
         
         for (int slot = 0; slot < GhastEnchantment.MAX_SLOTS; slot++) {
+            final int slotIndex = slot;
             int x = startX + slot * (slotWidth + spacing);
             
             ButtonWidget typeButton = ButtonWidget.builder(
                 Text.literal(""),
-                button -> cycleEnchantmentType(slot)
+                button -> cycleEnchantmentType(slotIndex)
             ).dimensions(x, this.enchantmentBaseY, slotWidth, 20).build();
             typeButton.setTooltip(Tooltip.of(Text.empty()));
             this.enchantmentTypeButtons.add(this.addDrawableChild(typeButton));
             
             ButtonWidget levelButton = ButtonWidget.builder(
                 Text.literal(""),
-                button -> cycleEnchantmentLevel(slot)
+                button -> cycleEnchantmentLevel(slotIndex)
             ).dimensions(x, this.enchantmentBaseY + 24, slotWidth, 20).build();
             levelButton.setTooltip(Tooltip.of(Text.empty()));
             this.enchantmentLevelButtons.add(this.addDrawableChild(levelButton));
