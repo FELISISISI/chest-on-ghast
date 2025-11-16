@@ -4,7 +4,6 @@ import me.noramibu.enchant.GhastEnchantment;
 import me.noramibu.enchant.GhastEnchantmentType;
 import me.noramibu.level.LevelConfig;
 import net.minecraft.nbt.NbtCompound;
-import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtString;
 import java.util.ArrayList;
@@ -334,21 +333,23 @@ public class HappyGhastData {
         HappyGhastData data = new HappyGhastData();
         
         // 使用Optional处理NBT读取
-        data.level = nbt.contains("Level") ? nbt.getInt("Level") : 1;
-        data.experience = nbt.contains("Experience") ? nbt.getInt("Experience") : 0;
-        data.hunger = nbt.contains("Hunger") ? nbt.getFloat("Hunger") : LevelConfig.getLevelData(1).getMaxHunger();
-        data.lastHungerDecayTime = nbt.contains("LastHungerDecayTime") ? nbt.getLong("LastHungerDecayTime") : System.currentTimeMillis();
+        data.level = nbt.getInt("Level").orElse(1);
+        data.experience = nbt.getInt("Experience").orElse(0);
+        data.hunger = nbt.getFloat("Hunger").orElse(LevelConfig.getLevelData(1).getMaxHunger());
+        data.lastHungerDecayTime = nbt.getLong("LastHungerDecayTime").orElse(System.currentTimeMillis());
         
         // 读取最喜欢的食物
-        if (nbt.contains("FavoriteFoods", NbtElement.LIST_TYPE)) {
-            NbtList foodList = nbt.getList("FavoriteFoods", NbtElement.STRING_TYPE);
-            data.favoriteFoods = new ArrayList<>();
-            for (int i = 0; i < foodList.size(); i++) {
-                String value = foodList.getString(i);
-                if (value != null && !value.isEmpty()) {
-                    data.favoriteFoods.add(value);
+        if (nbt.contains("FavoriteFoods")) {
+            nbt.getList("FavoriteFoods").ifPresent(foodList -> {
+                data.favoriteFoods = new ArrayList<>();
+                for (int i = 0; i < foodList.size(); i++) {
+                    foodList.getString(i).ifPresent(value -> {
+                        if (!value.isEmpty()) {
+                            data.favoriteFoods.add(value);
+                        }
+                    });
                 }
-            }
+            });
         }
         
         // 如果没有最喜欢的食物或数量不足3个，重新生成
@@ -357,29 +358,30 @@ public class HappyGhastData {
         }
         
         // 读取自定义名字
-        if (nbt.contains("CustomName")) {
-            data.customName = nbt.getString("CustomName");
-        }
+        nbt.getString("CustomName").ifPresent(value -> data.customName = value);
         
         // 读取附魔
-        if (nbt.contains("Enchantments", NbtElement.LIST_TYPE)) {
-            data.enchantments.clear();
-            NbtList enchantmentList = nbt.getList("Enchantments", NbtElement.COMPOUND_TYPE);
-            for (int i = 0; i < GhastEnchantment.MAX_SLOTS; i++) {
-                data.enchantments.add(GhastEnchantment.EMPTY);
-            }
-            for (int i = 0; i < enchantmentList.size(); i++) {
-                NbtCompound slotNbt = enchantmentList.getCompound(i);
-                int slotIndex = slotNbt.contains("Slot") ? slotNbt.getInt("Slot") : i;
-                String typeId = slotNbt.getString("Id");
-                int level = slotNbt.getInt("Level");
+        if (nbt.contains("Enchantments")) {
+            nbt.getList("Enchantments").ifPresent(enchantmentList -> {
+                data.enchantments.clear();
+                for (int i = 0; i < GhastEnchantment.MAX_SLOTS; i++) {
+                    data.enchantments.add(GhastEnchantment.EMPTY);
+                }
                 
-                GhastEnchantmentType.fromId(typeId).ifPresent(type -> {
-                    if (slotIndex >= 0 && slotIndex < data.enchantments.size()) {
-                        data.enchantments.set(slotIndex, new GhastEnchantment(type, level));
-                    }
-                });
-            }
+                for (int i = 0; i < enchantmentList.size(); i++) {
+                    enchantmentList.getCompound(i).ifPresent(slotNbt -> {
+                        int slotIndex = slotNbt.getInt("Slot").orElse(i);
+                        String typeId = slotNbt.getString("Id").orElse("");
+                        int level = slotNbt.getInt("Level").orElse(0);
+                        
+                        GhastEnchantmentType.fromId(typeId).ifPresent(type -> {
+                            if (slotIndex >= 0 && slotIndex < data.enchantments.size()) {
+                                data.enchantments.set(slotIndex, new GhastEnchantment(type, level));
+                            }
+                        });
+                    });
+                }
+            });
         }
         
         return data;
