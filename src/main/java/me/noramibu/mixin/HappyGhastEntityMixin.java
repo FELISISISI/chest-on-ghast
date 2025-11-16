@@ -66,11 +66,12 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     }
     
     /**
-     * 在实体死亡或被移除时调用
+     * 在实体死亡时调用
      * 用于清理资源
+     * 使用正确的方法签名：onDeath(DamageSource)
      */
-    @Inject(method = "onDeath", at = @At("HEAD"))
-    private void onDeath(CallbackInfo ci) {
+    @Inject(method = "onDeath(Lnet/minecraft/entity/damage/DamageSource;)V", at = @At("HEAD"), require = 0)
+    private void onDeath(net.minecraft.entity.damage.DamageSource source, CallbackInfo ci) {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         cleanupSystems(ghast);
     }
@@ -192,24 +193,24 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     }
     
     // ===== NBT持久化 =====
-    // 在tick方法中已经实现了定期保存，这里通过覆盖toNbtList来确保数据被保存
-    // 使用require=0使Mixin在找不到方法时不会失败（向后兼容）
+    // 使用正确的方法名：writeCustomDataToNbt 和 readCustomDataFromNbt
+    // 这些是Entity类中用于保存/读取自定义数据的标准方法
     
     /**
-     * 保存自定义NBT数据
-     * 注意：此方法在编译时可能找不到，但在运行时Mixin会正确注入
+     * 保存自定义NBT数据到NbtCompound
+     * 此方法在实体保存时被调用
      */
-    @Inject(method = "writeNbt", at = @At("RETURN"), require = 0)
-    private void onWriteNbt(NbtCompound nbt, CallbackInfoReturnable<NbtCompound> cir) {
+    @Inject(method = "writeCustomDataToNbt(Lnet/minecraft/nbt/NbtCompound;)V", at = @At("TAIL"), require = 0)
+    private void onWriteCustomData(NbtCompound nbt, CallbackInfo ci) {
         getHappyGhastData().writeToNbt(nbt);
     }
     
     /**
-     * 读取自定义NBT数据  
-     * 注意：此方法在编译时可能找不到，但在运行时Mixin会正确注入
+     * 从NbtCompound读取自定义NBT数据
+     * 此方法在实体加载时被调用
      */
-    @Inject(method = "readNbt", at = @At("RETURN"), require = 0)
-    private void onReadNbt(NbtCompound nbt, CallbackInfo ci) {
+    @Inject(method = "readCustomDataFromNbt(Lnet/minecraft/nbt/NbtCompound;)V", at = @At("TAIL"), require = 0)
+    private void onReadCustomData(NbtCompound nbt, CallbackInfo ci) {
         this.ghastData = HappyGhastData.readFromNbt(nbt);
     }
     
@@ -222,9 +223,9 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     
     /**
      * 实体被移除时的清理方法
-     * 注意：此方法在编译时可能找不到，但在运行时Mixin会正确注入
+     * 在Entity.remove(RemovalReason)方法被调用时执行清理
      */
-    @Inject(method = "remove", at = @At("HEAD"), require = 0)
+    @Inject(method = "remove(Lnet/minecraft/entity/Entity$RemovalReason;)V", at = @At("HEAD"), require = 0)
     private void onRemove(net.minecraft.entity.Entity.RemovalReason reason, CallbackInfo ci) {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         cleanupSystems(ghast);
