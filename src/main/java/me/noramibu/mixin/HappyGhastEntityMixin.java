@@ -65,6 +65,17 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 懒加载模式：在getHappyGhastData()中初始化
     }
     
+    /**
+     * 在实体死亡时调用
+     * 用于清理资源
+     * 使用正确的方法签名：onDeath(DamageSource)
+     */
+    @Inject(method = "onDeath(Lnet/minecraft/entity/damage/DamageSource;)V", at = @At("HEAD"), require = 0)
+    private void onDeath(net.minecraft.entity.damage.DamageSource source, CallbackInfo ci) {
+        HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        cleanupSystems(ghast);
+    }
+    
     @Override
     public HappyGhastData getHappyGhastData() {
         if (this.ghastData == null) {
@@ -182,37 +193,60 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     }
     
     // ===== NBT持久化 =====
+    // 使用正确的方法名：writeCustomDataToNbt 和 readCustomDataFromNbt
+    // 这些是Entity类中用于保存/读取自定义数据的标准方法
     
-    @Inject(method = "writeNbt", at = @At("TAIL"))
-    private void onWriteNbt(NbtCompound nbt, CallbackInfoReturnable<NbtCompound> cir) {
+    /**
+     * 保存自定义NBT数据到NbtCompound
+     * 此方法在实体保存时被调用
+     */
+    @Inject(method = "writeCustomDataToNbt(Lnet/minecraft/nbt/NbtCompound;)V", at = @At("TAIL"), require = 0)
+    private void onWriteCustomData(NbtCompound nbt, CallbackInfo ci) {
         getHappyGhastData().writeToNbt(nbt);
     }
     
-    @Inject(method = "readNbt", at = @At("TAIL"))
-    private void onReadNbt(NbtCompound nbt, CallbackInfo ci) {
+    /**
+     * 从NbtCompound读取自定义NBT数据
+     * 此方法在实体加载时被调用
+     */
+    @Inject(method = "readCustomDataFromNbt(Lnet/minecraft/nbt/NbtCompound;)V", at = @At("TAIL"), require = 0)
+    private void onReadCustomData(NbtCompound nbt, CallbackInfo ci) {
         this.ghastData = HappyGhastData.readFromNbt(nbt);
     }
     
     @Unique
     private void saveDataToNbt(HappyGhastEntity ghast) {
-        // 数据自动保存，这里留空即可
+        // 数据自动保存，在tick方法中每100 ticks保存一次
     }
     
     // ===== 清理 =====
     
-    @Inject(method = "onRemoved", at = @At("HEAD"))
-    private void onRemove(CallbackInfo ci) {
+    /**
+     * 实体被移除时的清理方法
+     * 在Entity.remove(RemovalReason)方法被调用时执行清理
+     */
+    @Inject(method = "remove(Lnet/minecraft/entity/Entity$RemovalReason;)V", at = @At("HEAD"), require = 0)
+    private void onRemove(net.minecraft.entity.Entity.RemovalReason reason, CallbackInfo ci) {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
-        
-        // 清理系统
+        cleanupSystems(ghast);
+    }
+    
+    /**
+     * 清理系统资源的统一方法
+     */
+    @Unique
+    private void cleanupSystems(HappyGhastEntity ghast) {
+        // 清理战斗系统
         if (combatSystem != null) {
             combatSystem.reset();
         }
+        
+        // 清理效果云系统
         if (effectCloudSystem != null) {
             effectCloudSystem.reset();
         }
         
-        // 从Holder中移除
+        // 从全局Holder中移除
         EffectCloudSystemHolder.unregister(ghast);
     }
 }
