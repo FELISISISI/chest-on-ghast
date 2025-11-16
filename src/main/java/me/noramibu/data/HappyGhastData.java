@@ -369,8 +369,9 @@ public class HappyGhastData {
                 }
                 
                 for (int i = 0; i < enchantmentList.size(); i++) {
+                    final int slotPosition = i;
                     enchantmentList.getCompound(i).ifPresent(slotNbt -> {
-                        int slotIndex = slotNbt.getInt("Slot").orElse(i);
+                        int slotIndex = slotNbt.getInt("Slot").orElse(slotPosition);
                         String typeId = slotNbt.getString("Id").orElse("");
                         int level = slotNbt.getInt("Level").orElse(0);
                         
