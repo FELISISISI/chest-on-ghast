@@ -1,12 +1,18 @@
 package me.noramibu.gui;
 
+import me.noramibu.enchantment.EnchantmentData;
+import me.noramibu.enchantment.FireballEnchantment;
+import me.noramibu.item.EnchantedFireballBookItem;
+import me.noramibu.network.OpenEnchantmentGuiPayload;
 import me.noramibu.network.RenameGhastPayload;
 import me.noramibu.network.RequestGhastDataPayload;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.item.ItemStack;
 import net.minecraft.text.Text;
 import java.util.List;
 
@@ -25,6 +31,10 @@ public class HappyGhastScreen extends Screen {
     private int tickCounter = 0;  // 用于控制请求频率
     private TextFieldWidget nameField;  // 名字输入框
     private String customName;  // 自定义名字
+    
+    // 附魔数据
+    private EnchantmentData enchantmentData = new EnchantmentData();
+    private ButtonWidget editEnchantmentButton;  // 编辑附魔按钮
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
@@ -214,6 +224,107 @@ public class HappyGhastScreen extends Screen {
                 context.drawText(this.textRenderer, foodText, leftMargin + 5, bottomMargin + 12 + i * 10, 0x88FFAA88, false);
             }
         }
+        
+        // 绘制附魔槽位
+        drawEnchantmentSlots(context, mouseX, mouseY);
+    }
+    
+    /**
+     * 绘制附魔槽位显示
+     */
+    private void drawEnchantmentSlots(DrawContext context, int mouseX, int mouseY) {
+        int slotY = this.height - 90;
+        int centerX = this.width / 2;
+        
+        // 标题
+        Text enchantTitle = Text.translatable("gui.chest-on-ghast.enchantments");
+        context.drawText(this.textRenderer, enchantTitle, 
+            centerX - this.textRenderer.getWidth(enchantTitle) / 2, slotY - 12, 0xFFFFFFFF, false);
+        
+        // 绘制3个附魔槽位（横向排列）
+        for (int i = 0; i < 3; i++) {
+            int slotX = centerX - 60 + i * 40;
+            
+            // 绘制槽位背景（深色方框）
+            context.fill(slotX, slotY, slotX + 32, slotY + 32, 0x80000000);
+            // 绘制边框（手动）
+            context.fill(slotX, slotY, slotX + 32, slotY + 1, 0xFFFFFFFF); // 上
+            context.fill(slotX, slotY + 31, slotX + 32, slotY + 32, 0xFFFFFFFF); // 下
+            context.fill(slotX, slotY, slotX + 1, slotY + 32, 0xFFFFFFFF); // 左
+            context.fill(slotX + 31, slotY, slotX + 32, slotY + 32, 0xFFFFFFFF); // 右
+            
+            // 获取槽位中的附魔
+            EnchantmentData.EnchantmentSlot enchSlot = enchantmentData.getEnchantment(i);
+            
+            if (enchSlot != null) {
+                // 绘制附魔书图标
+                ItemStack bookStack = enchSlot.getBookStack();
+                context.drawItem(bookStack, slotX + 8, slotY + 2);
+                
+                // 绘制附魔等级
+                FireballEnchantment enchantment = enchSlot.getEnchantment();
+                String enchantText = getRomanNumeral(enchSlot.getLevel());
+                context.drawText(this.textRenderer, enchantText, 
+                    slotX + 12, slotY + 22, 0xFFD700, false);
+                
+                // 鼠标悬停显示完整信息
+                if (mouseX >= slotX && mouseX < slotX + 32 && mouseY >= slotY && mouseY < slotY + 32) {
+                    context.drawTooltip(this.textRenderer, List.of(
+                        Text.translatable(enchantment.getTranslationKey())
+                            .append(" " + getRomanNumeral(enchSlot.getLevel())),
+                        Text.translatable(enchantment.getDescriptionKey())
+                    ), mouseX, mouseY);
+                }
+            } else {
+                // 空槽位显示 "+"
+                context.drawText(this.textRenderer, "+", 
+                    slotX + 12, slotY + 12, 0x808080, false);
+            }
+        }
+    }
+    
+    /**
+     * 转换数字为罗马数字
+     */
+    private String getRomanNumeral(int number) {
+        switch (number) {
+            case 1: return "I";
+            case 2: return "II";
+            case 3: return "III";
+            case 4: return "IV";
+            case 5: return "V";
+            default: return String.valueOf(number);
+        }
+    }
+    
+    /**
+     * 打开附魔编辑GUI
+     */
+    private void openEnchantmentEditGui() {
+        // 发送打开附魔编辑GUI的请求
+        ClientPlayNetworking.send(new OpenEnchantmentGuiPayload(this.entityId));
+        
+        // 打开附魔编辑界面
+        if (this.client != null) {
+            this.client.setScreen(new EnchantmentEditScreen(
+                new EnchantmentEditScreen.EnchantmentEditScreenHandler(
+                    0,
+                    this.client.player.getInventory(),
+                    this.enchantmentData,
+                    this.entityId
+                ),
+                this.client.player.getInventory(),
+                Text.translatable("gui.chest-on-ghast.enchantment.edit"),
+                this.entityId
+            ));
+        }
+    }
+    
+    /**
+     * 更新附魔数据
+     */
+    public void updateEnchantmentData(EnchantmentData data) {
+        this.enchantmentData = data;
     }
     
     /**

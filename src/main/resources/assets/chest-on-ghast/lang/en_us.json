@@ -12,5 +12,51 @@
   "gui.chest-on-ghast.name_placeholder": "Click to edit name",
   "message.chest-on-ghast.level_up": "Happy Ghast leveled up to level %s!",
   "message.chest-on-ghast.fed": "Hunger +%s  EXP +%s",
-  "message.chest-on-ghast.favorite_food": "❤ Happy Ghast LOVES this food! ❤"
+  "message.chest-on-ghast.favorite_food": "❤ Happy Ghast LOVES this food! ❤",
+  "message.chest-on-ghast.combat_mode": "Happy Ghast entered combat mode!",
+  "message.chest-on-ghast.protecting": "Happy Ghast is protecting you!",
+  "item.chest-on-ghast.ghast_scope": "Happy Ghast Scope",
+  "message.chest-on-ghast.fireball_shot": "Fireball shot!",
+  "message.chest-on-ghast.scope_hint": "Hold right-click to aim, release to shoot fireball",
+  "message.chest-on-ghast.need_saddle": "Happy Ghast needs a saddle to be ridden!",
+  "message.chest-on-ghast.effect_cloud_unlocked": "Happy Ghast reached level 3! Fireballs now spawn healing clouds!",
+  "effect.chest-on-ghast.healing_cloud": "Happy Ghast's Blessing",
+  
+  "item.chest-on-ghast.enchanted_fireball_book": "Enchanted Fireball Book",
+  "item.chest-on-ghast.fireball_book.usage": "Use in Happy Ghast GUI",
+  "item.chest-on-ghast.fireball_book.level": "Level: %s/%s",
+  "item.chest-on-ghast.fireball_book.effect": "Effect:",
+  
+  "enchantment.chest-on-ghast.multishot": "Multishot",
+  "enchantment.chest-on-ghast.multishot.desc": "Fire multiple fireballs at once",
+  "enchantment.chest-on-ghast.multishot.effect": "Fire %s fireballs",
+  
+  "enchantment.chest-on-ghast.freezing": "Freezing",
+  "enchantment.chest-on-ghast.freezing.desc": "Effect cloud freezes monsters",
+  "enchantment.chest-on-ghast.freezing.effect": "Freeze for %s seconds",
+  
+  "enchantment.chest-on-ghast.charm": "Charm",
+  "enchantment.chest-on-ghast.charm.desc": "Monsters attack each other",
+  "enchantment.chest-on-ghast.charm.effect": "Lasts %s seconds",
+  
+  "enchantment.chest-on-ghast.piercing": "Piercing Tracker",
+  "enchantment.chest-on-ghast.piercing.desc": "Fireball pierces and tracks multiple enemies",
+  "enchantment.chest-on-ghast.piercing.effect": "Hit %s targets",
+  
+  "enchantment.chest-on-ghast.duration": "Duration",
+  "enchantment.chest-on-ghast.duration.desc": "Effect cloud lasts longer",
+  "enchantment.chest-on-ghast.duration.effect": "Duration %s",
+  
+  "enchantment.chest-on-ghast.gravity": "Gravity Singularity",
+  "enchantment.chest-on-ghast.gravity.desc": "Creates gravity singularity that pulls entities to center",
+  "enchantment.chest-on-ghast.gravity.effect": "Range %s blocks",
+  
+  "enchantment.chest-on-ghast.polymorph": "Hilarious Polymorph",
+  "enchantment.chest-on-ghast.polymorph.desc": "Transforms monsters into harmless passive animals",
+  "enchantment.chest-on-ghast.polymorph.effect": "Chance %s%%",
+  
+  "gui.chest-on-ghast.enchantments": "Fireball Enchantments",
+  "gui.chest-on-ghast.enchantment.edit": "Edit Enchantments",
+  "gui.chest-on-ghast.enchantment.slots": "Enchantment Slots",
+  "gui.chest-on-ghast.enchantment.done": "Done"
 }
