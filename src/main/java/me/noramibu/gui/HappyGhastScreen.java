@@ -1,14 +1,20 @@
 package me.noramibu.gui;
 
+import me.noramibu.enchant.GhastEnchantment;
+import me.noramibu.enchant.GhastEnchantmentType;
 import me.noramibu.network.RenameGhastPayload;
 import me.noramibu.network.RequestGhastDataPayload;
 import me.noramibu.network.SyncGhastDataPayload;
+import me.noramibu.network.UpdateGhastEnchantmentsPayload;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.tooltip.Tooltip;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 import java.util.List;
+import java.util.ArrayList;
 
 public class HappyGhastScreen extends Screen {
     private final int entityId;
@@ -21,18 +27,23 @@ public class HappyGhastScreen extends Screen {
     private int expToNext;
     private final boolean isCreative;
     private final List<String> favoriteFoods;
+    private final List<GhastEnchantment> enchantments;
+    private final List<ButtonWidget> enchantmentTypeButtons = new ArrayList<>();
+    private final List<ButtonWidget> enchantmentLevelButtons = new ArrayList<>();
     
     private int tickCounter = 0;  // 用于控制请求频率
+    private int enchantmentBaseY; // 附魔按钮区域的基准Y
     private TextFieldWidget nameField;  // 名字输入框
     private String customName;  // 自定义名字
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
         this.entityId = payload.entityId();
-        updateFromPayload(payload);
         this.isCreative = payload.isCreative();
         this.favoriteFoods = payload.favoriteFoods();
-        this.customName = "";  // 初始为空，后续会从服务器同步
+        this.enchantments = new ArrayList<>();
+        this.customName = "";
+        updateFromPayload(payload);
     }
     
     /**
@@ -68,6 +79,11 @@ public class HappyGhastScreen extends Screen {
         });
         
         this.addDrawableChild(this.nameField);
+        
+        // 计算附魔区域基准Y并构建按钮
+        this.enchantmentBaseY = this.height / 2 + 40;
+        buildEnchantmentControls(centerX);
+        syncEnchantmentButtons();
     }
     
     /**
@@ -81,6 +97,7 @@ public class HappyGhastScreen extends Screen {
         this.maxHunger = payload.maxHunger();
         this.experience = payload.experience();
         this.expToNext = payload.expToNext();
+        ingestEnchantments(payload.enchantments());
         
         // 更新自定义名字
         String newCustomName = payload.customName();
@@ -97,6 +114,75 @@ public class HappyGhastScreen extends Screen {
         if (this.nameField != null) {
             this.nameField.setText(name.isEmpty() ? 
                 Text.translatable("gui.chest-on-ghast.happy_ghast").getString() : name);
+        }
+    }
+    
+    /**
+     * 替换本地附魔数据并刷新按钮
+     */
+    private void ingestEnchantments(List<GhastEnchantment> remote) {
+        this.enchantments.clear();
+        if (remote != null) {
+            this.enchantments.addAll(remote);
+        }
+        while (this.enchantments.size() < GhastEnchantment.MAX_SLOTS) {
+            this.enchantments.add(GhastEnchantment.EMPTY);
+        }
+        syncEnchantmentButtons();
+    }
+    
+    /**
+     * 创建附魔类型与等级按钮
+     */
+    private void buildEnchantmentControls(int centerX) {
+        this.enchantmentTypeButtons.clear();
+        this.enchantmentLevelButtons.clear();
+        
+        int slotWidth = 90;
+        int spacing = 12;
+        int totalWidth = GhastEnchantment.MAX_SLOTS * slotWidth + (GhastEnchantment.MAX_SLOTS - 1) * spacing;
+        int startX = centerX - totalWidth / 2;
+        
+        for (int slot = 0; slot < GhastEnchantment.MAX_SLOTS; slot++) {
+            int x = startX + slot * (slotWidth + spacing);
+            
+            ButtonWidget typeButton = ButtonWidget.builder(
+                Text.literal(""),
+                button -> cycleEnchantmentType(slot)
+            ).dimensions(x, this.enchantmentBaseY, slotWidth, 20).build();
+            typeButton.setTooltip(Tooltip.of(Text.empty()));
+            this.enchantmentTypeButtons.add(this.addDrawableChild(typeButton));
+            
+            ButtonWidget levelButton = ButtonWidget.builder(
+                Text.literal(""),
+                button -> cycleEnchantmentLevel(slot)
+            ).dimensions(x, this.enchantmentBaseY + 24, slotWidth, 20).build();
+            levelButton.setTooltip(Tooltip.of(Text.empty()));
+            this.enchantmentLevelButtons.add(this.addDrawableChild(levelButton));
+        }
+    }
+    
+    /**
+     * 根据当前附魔刷新按钮的文字、可用状态和提示
+     */
+    private void syncEnchantmentButtons() {
+        for (int slot = 0; slot < this.enchantmentTypeButtons.size(); slot++) {
+            GhastEnchantment enchantment = getEnchantment(slot);
+            
+            ButtonWidget typeButton = this.enchantmentTypeButtons.get(slot);
+            if (typeButton != null) {
+                typeButton.setMessage(buildTypeLabel(slot, enchantment));
+                typeButton.setTooltip(Tooltip.of(buildTypeTooltip(enchantment)));
+            }
+            
+            if (slot < this.enchantmentLevelButtons.size()) {
+                ButtonWidget levelButton = this.enchantmentLevelButtons.get(slot);
+                if (levelButton != null) {
+                    levelButton.setMessage(buildLevelLabel(enchantment));
+                    levelButton.active = !enchantment.isEmpty();
+                    levelButton.setTooltip(Tooltip.of(buildLevelTooltip(enchantment)));
+                }
+            }
         }
     }
     
@@ -132,6 +218,134 @@ public class HappyGhastScreen extends Screen {
             ClientPlayNetworking.send(new RequestGhastDataPayload(this.entityId));
             tickCounter = 0;
         }
+    }
+    
+    /**
+     * 获取指定槽位的附魔
+     */
+    private GhastEnchantment getEnchantment(int slot) {
+        if (slot < 0 || slot >= this.enchantments.size()) {
+            return GhastEnchantment.EMPTY;
+        }
+        return this.enchantments.get(slot);
+    }
+    
+    /**
+     * 构建附魔类型按钮的标签
+     */
+    private Text buildTypeLabel(int slot, GhastEnchantment enchantment) {
+        Text typeText = enchantment.isEmpty()
+            ? Text.translatable("gui.chest-on-ghast.enchantment.none")
+            : enchantment.type().getDisplayText();
+        return Text.translatable("gui.chest-on-ghast.enchantment_slot_label", slot + 1, typeText);
+    }
+    
+    /**
+     * 构建附魔等级按钮的标签
+     */
+    private Text buildLevelLabel(GhastEnchantment enchantment) {
+        if (enchantment.isEmpty()) {
+            return Text.translatable("gui.chest-on-ghast.enchantment_level_empty");
+        }
+        return Text.translatable("gui.chest-on-ghast.enchantment_level", romanNumeral(enchantment.level()));
+    }
+    
+    /**
+     * 构建类型提示文本
+     */
+    private Text buildTypeTooltip(GhastEnchantment enchantment) {
+        GhastEnchantmentType type = enchantment.type();
+        if (type == GhastEnchantmentType.NONE) {
+            return Text.translatable("gui.chest-on-ghast.enchantment.none_desc");
+        }
+        return Text.translatable(
+            "gui.chest-on-ghast.enchantment.tooltip",
+            type.getDisplayText(),
+            type.getRequiredLevel(),
+            type.getDescriptionText()
+        );
+    }
+    
+    /**
+     * 构建等级提示文本
+     */
+    private Text buildLevelTooltip(GhastEnchantment enchantment) {
+        if (enchantment.isEmpty()) {
+            return Text.translatable("gui.chest-on-ghast.enchantment.level_hint_empty");
+        }
+        return Text.translatable("gui.chest-on-ghast.enchantment.level_hint");
+    }
+    
+    /**
+     * 循环切换附魔类型（根据当前等级过滤）
+     */
+    private void cycleEnchantmentType(int slot) {
+        GhastEnchantment current = getEnchantment(slot);
+        GhastEnchantmentType nextType = current.type().next();
+        
+        int attempts = 0;
+        while (attempts < GhastEnchantmentType.SELECTABLE_TYPES.size()) {
+            if (nextType == GhastEnchantmentType.NONE || this.level >= nextType.getRequiredLevel()) {
+                break;
+            }
+            nextType = nextType.next();
+            attempts++;
+        }
+        
+        int nextLevel = nextType == GhastEnchantmentType.NONE
+            ? 0
+            : Math.max(1, Math.min(current.level(), nextType.getMaxLevel()));
+        
+        sendEnchantmentUpdate(slot, new GhastEnchantment(nextType, nextLevel));
+    }
+    
+    /**
+     * 循环切换附魔等级
+     */
+    private void cycleEnchantmentLevel(int slot) {
+        GhastEnchantment current = getEnchantment(slot);
+        if (current.isEmpty()) {
+            return;
+        }
+        
+        int nextLevel = current.level() + 1;
+        if (nextLevel > current.type().getMaxLevel()) {
+            nextLevel = 1;
+        }
+        sendEnchantmentUpdate(slot, new GhastEnchantment(current.type(), nextLevel));
+    }
+    
+    /**
+     * 本地更新并向服务端发送附魔改动
+     */
+    private void sendEnchantmentUpdate(int slot, GhastEnchantment enchantment) {
+        if (slot < 0 || slot >= this.enchantments.size()) {
+            return;
+        }
+        
+        this.enchantments.set(slot, enchantment);
+        syncEnchantmentButtons();
+        
+        ClientPlayNetworking.send(
+            new UpdateGhastEnchantmentsPayload(
+                this.entityId,
+                slot,
+                enchantment.type().getId().toString(),
+                enchantment.level()
+            )
+        );
+    }
+    
+    /**
+     * 将数字转换为罗马数字
+     */
+    private String romanNumeral(int value) {
+        return switch (Math.max(0, value)) {
+            case 1 -> "I";
+            case 2 -> "II";
+            case 3 -> "III";
+            default -> value <= 0 ? "-" : String.valueOf(value);
+        };
     }
     
     @Override
@@ -190,7 +404,13 @@ public class HappyGhastScreen extends Screen {
                 1.0f,
                 0xFFFFD700);
         }
-        
+
+        // 附魔标题
+        int enchantHeaderY = (this.enchantmentBaseY == 0 ? dataY + 90 : this.enchantmentBaseY - 18);
+        Text enchantHeader = Text.translatable("gui.chest-on-ghast.enchantments");
+        int enchantHeaderWidth = this.textRenderer.getWidth(enchantHeader);
+        context.drawText(this.textRenderer, enchantHeader, centerX - enchantHeaderWidth / 2, enchantHeaderY, 0xFF55FFFF, false);
+
         // 底部提示（居中）
         int hintY = dataY + 70;
         Text closeHint = Text.translatable("gui.chest-on-ghast.close_hint");

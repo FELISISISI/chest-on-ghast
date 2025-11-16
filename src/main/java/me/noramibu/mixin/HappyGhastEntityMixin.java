@@ -1,9 +1,9 @@
 package me.noramibu.mixin;
 
+import me.noramibu.NetworkHandler;
 import me.noramibu.accessor.HappyGhastDataAccessor;
 import me.noramibu.data.HappyGhastData;
 import me.noramibu.level.LevelConfig;
-import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.EntityType;
@@ -254,22 +254,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                     HappyGhastData data = this.getGhastData();
                     
                     // 直接发送数据到客户端并打开GUI
-                    // 使用SyncGhastDataPayload（已正确注册为S2C）
-                    SyncGhastDataPayload syncPayload = new SyncGhastDataPayload(
-                        ghast.getId(),
-                        data.getLevel(),
-                        data.getExperience(),
-                        data.getHunger(),
-                        data.getMaxHealth(),
-                        ghast.getHealth(),
-                        data.getMaxHunger(),
-                        data.getExpToNextLevel(),
-                        serverPlayer.isCreative(),  // 玩家创造模式状态
-                        data.getFavoriteFoods(),     // 最喜欢的食物列表
-                        data.getCustomName() != null ? data.getCustomName() : ""  // 自定义名字
-                    );
-                    
-                    ServerPlayNetworking.send(serverPlayer, syncPayload);
+                    ServerPlayNetworking.send(serverPlayer, NetworkHandler.createSyncPayload(ghast, serverPlayer, data));
                     cir.setReturnValue(ActionResult.SUCCESS);
                     return;
                 }

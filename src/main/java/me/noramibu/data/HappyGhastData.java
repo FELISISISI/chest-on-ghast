@@ -1,10 +1,14 @@
 package me.noramibu.data;
 
+import me.noramibu.enchant.GhastEnchantment;
+import me.noramibu.enchant.GhastEnchantmentType;
 import me.noramibu.level.LevelConfig;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.nbt.NbtElement;
 import net.minecraft.nbt.NbtList;
 import net.minecraft.nbt.NbtString;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 
@@ -31,6 +35,9 @@ public class HappyGhastData {
     
     // 自定义名字
     private String customName;
+    
+    // 附魔槽位（最多3个）
+    private final List<GhastEnchantment> enchantments;
     
     // 所有可能的食物列表
     private static final String[] ALL_FOODS = {
@@ -60,6 +67,7 @@ public class HappyGhastData {
         this.hunger = levelData.getMaxHunger();
         this.lastHungerDecayTime = System.currentTimeMillis();
         this.favoriteFoods = generateRandomFavoriteFoods();
+        this.enchantments = createEmptyEnchantments();
     }
     
     /**
@@ -74,6 +82,7 @@ public class HappyGhastData {
         this.hunger = hunger;
         this.lastHungerDecayTime = System.currentTimeMillis();
         this.favoriteFoods = generateRandomFavoriteFoods();
+        this.enchantments = createEmptyEnchantments();
     }
     
     // Getter方法
@@ -82,6 +91,7 @@ public class HappyGhastData {
     public float getHunger() { return hunger; }
     public List<String> getFavoriteFoods() { return favoriteFoods; }
     public String getCustomName() { return customName; }
+    public List<GhastEnchantment> getEnchantments() { return Collections.unmodifiableList(enchantments); }
     
     // Setter方法
     public void setCustomName(String name) { this.customName = name; }
@@ -108,6 +118,58 @@ public class HappyGhastData {
         }
         
         return favorites;
+    }
+    
+    /**
+     * 初始化空的附魔槽位列表
+     */
+    private List<GhastEnchantment> createEmptyEnchantments() {
+        List<GhastEnchantment> slots = new ArrayList<>(GhastEnchantment.MAX_SLOTS);
+        for (int i = 0; i < GhastEnchantment.MAX_SLOTS; i++) {
+            slots.add(GhastEnchantment.EMPTY);
+        }
+        return slots;
+    }
+    
+    /**
+     * 获取指定槽位的附魔
+     */
+    public GhastEnchantment getEnchantment(int slot) {
+        if (slot < 0 || slot >= enchantments.size()) {
+            return GhastEnchantment.EMPTY;
+        }
+        return enchantments.get(slot);
+    }
+    
+    /**
+     * 设置指定槽位的附魔
+     */
+    public void setEnchantment(int slot, GhastEnchantment enchantment) {
+        if (slot < 0 || slot >= enchantments.size()) {
+            return;
+        }
+        enchantments.set(slot, enchantment == null ? GhastEnchantment.EMPTY : enchantment);
+    }
+    
+    /**
+     * 清除指定槽位的附魔
+     */
+    public void clearEnchantment(int slot) {
+        setEnchantment(slot, GhastEnchantment.EMPTY);
+    }
+    
+    /**
+     * 获取某种附魔的等级（若不存在则为0）
+     */
+    public int getEnchantmentLevel(GhastEnchantmentType type) {
+        if (type == null) {
+            return 0;
+        }
+        return enchantments.stream()
+            .filter(enchantment -> enchantment.type() == type)
+            .mapToInt(GhastEnchantment::level)
+            .max()
+            .orElse(0);
     }
     
     /**
@@ -248,6 +310,18 @@ public class HappyGhastData {
         if (customName != null && !customName.isEmpty()) {
             nbt.putString("CustomName", customName);
         }
+        
+        // 保存附魔列表
+        NbtList enchantmentList = new NbtList();
+        for (int slot = 0; slot < enchantments.size(); slot++) {
+            GhastEnchantment enchantment = enchantments.get(slot);
+            NbtCompound slotNbt = new NbtCompound();
+            slotNbt.putInt("Slot", slot);
+            slotNbt.putString("Id", enchantment.type().getId().toString());
+            slotNbt.putInt("Level", enchantment.level());
+            enchantmentList.add(slotNbt);
+        }
+        nbt.put("Enchantments", enchantmentList);
     }
     
     /**
@@ -260,17 +334,20 @@ public class HappyGhastData {
         HappyGhastData data = new HappyGhastData();
         
         // 使用Optional处理NBT读取
-        data.level = nbt.contains("Level") ? nbt.getInt("Level").orElse(1) : 1;
-        data.experience = nbt.contains("Experience") ? nbt.getInt("Experience").orElse(0) : 0;
-        data.hunger = nbt.contains("Hunger") ? nbt.getFloat("Hunger").orElse(LevelConfig.getLevelData(1).getMaxHunger()) : LevelConfig.getLevelData(1).getMaxHunger();
-        data.lastHungerDecayTime = nbt.contains("LastHungerDecayTime") ? nbt.getLong("LastHungerDecayTime").orElse(System.currentTimeMillis()) : System.currentTimeMillis();
+        data.level = nbt.contains("Level") ? nbt.getInt("Level") : 1;
+        data.experience = nbt.contains("Experience") ? nbt.getInt("Experience") : 0;
+        data.hunger = nbt.contains("Hunger") ? nbt.getFloat("Hunger") : LevelConfig.getLevelData(1).getMaxHunger();
+        data.lastHungerDecayTime = nbt.contains("LastHungerDecayTime") ? nbt.getLong("LastHungerDecayTime") : System.currentTimeMillis();
         
         // 读取最喜欢的食物
-        if (nbt.contains("FavoriteFoods")) {
-            NbtList foodList = nbt.getList("FavoriteFoods").orElse(new NbtList());
+        if (nbt.contains("FavoriteFoods", NbtElement.LIST_TYPE)) {
+            NbtList foodList = nbt.getList("FavoriteFoods", NbtElement.STRING_TYPE);
             data.favoriteFoods = new ArrayList<>();
             for (int i = 0; i < foodList.size(); i++) {
-                foodList.getString(i).ifPresent(data.favoriteFoods::add);
+                String value = foodList.getString(i);
+                if (value != null && !value.isEmpty()) {
+                    data.favoriteFoods.add(value);
+                }
             }
         }
         
@@ -281,7 +358,28 @@ public class HappyGhastData {
         
         // 读取自定义名字
         if (nbt.contains("CustomName")) {
-            data.customName = nbt.getString("CustomName").orElse("");
+            data.customName = nbt.getString("CustomName");
+        }
+        
+        // 读取附魔
+        if (nbt.contains("Enchantments", NbtElement.LIST_TYPE)) {
+            data.enchantments.clear();
+            NbtList enchantmentList = nbt.getList("Enchantments", NbtElement.COMPOUND_TYPE);
+            for (int i = 0; i < GhastEnchantment.MAX_SLOTS; i++) {
+                data.enchantments.add(GhastEnchantment.EMPTY);
+            }
+            for (int i = 0; i < enchantmentList.size(); i++) {
+                NbtCompound slotNbt = enchantmentList.getCompound(i);
+                int slotIndex = slotNbt.contains("Slot") ? slotNbt.getInt("Slot") : i;
+                String typeId = slotNbt.getString("Id");
+                int level = slotNbt.getInt("Level");
+                
+                GhastEnchantmentType.fromId(typeId).ifPresent(type -> {
+                    if (slotIndex >= 0 && slotIndex < data.enchantments.size()) {
+                        data.enchantments.set(slotIndex, new GhastEnchantment(type, level));
+                    }
+                });
+            }
         }
         
         return data;
@@ -296,6 +394,10 @@ public class HappyGhastData {
         copy.lastHungerDecayTime = this.lastHungerDecayTime;
         copy.favoriteFoods = new ArrayList<>(this.favoriteFoods);
         copy.customName = this.customName;
+        for (int i = 0; i < this.enchantments.size(); i++) {
+            GhastEnchantment enchantment = this.enchantments.get(i);
+            copy.enchantments.set(i, new GhastEnchantment(enchantment.type(), enchantment.level()));
+        }
         return copy;
     }
 }
