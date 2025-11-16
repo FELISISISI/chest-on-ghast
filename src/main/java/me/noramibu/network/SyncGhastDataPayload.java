@@ -1,6 +1,8 @@
 package me.noramibu.network;
 
 import me.noramibu.Chestonghast;
+import me.noramibu.enchant.GhastEnchantment;
+import me.noramibu.enchant.GhastEnchantmentType;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
@@ -23,7 +25,8 @@ public record SyncGhastDataPayload(
     int expToNext,         // 升级所需经验
     boolean isCreative,    // 玩家是否为创造模式
     List<String> favoriteFoods,  // 最喜欢的食物（创造模式下显示）
-    String customName      // 自定义名字
+    String customName,           // 自定义名字
+    List<GhastEnchantment> enchantments // 附魔槽位
 ) implements CustomPayload {
     
     // 网络包标识符
@@ -31,10 +34,9 @@ public record SyncGhastDataPayload(
         new CustomPayload.Id<>(Identifier.of(Chestonghast.MOD_ID, "sync_ghast_data"));
     
     // 编解码器，用于序列化和反序列化网络包
-    public static final PacketCodec<PacketByteBuf, SyncGhastDataPayload> CODEC = 
+    public static final PacketCodec<PacketByteBuf, SyncGhastDataPayload> CODEC =
         PacketCodec.of(
             (value, buf) -> {
-                // 编码器：按顺序写入所有数据
                 buf.writeInt(value.entityId);
                 buf.writeInt(value.level);
                 buf.writeInt(value.experience);
@@ -44,18 +46,21 @@ public record SyncGhastDataPayload(
                 buf.writeFloat(value.maxHunger);
                 buf.writeInt(value.expToNext);
                 buf.writeBoolean(value.isCreative);
-                
-                // 写入最喜欢的食物列表
+
                 buf.writeInt(value.favoriteFoods.size());
                 for (String food : value.favoriteFoods) {
                     buf.writeString(food);
                 }
-                
-                // 写入自定义名字
+
                 buf.writeString(value.customName != null ? value.customName : "");
+
+                buf.writeInt(value.enchantments.size());
+                for (GhastEnchantment enchantment : value.enchantments) {
+                    buf.writeString(enchantment.type().getId().toString());
+                    buf.writeInt(enchantment.level());
+                }
             },
             buf -> {
-                // 解码器：按顺序读取所有数据
                 int entityId = buf.readInt();
                 int level = buf.readInt();
                 int experience = buf.readInt();
@@ -65,21 +70,31 @@ public record SyncGhastDataPayload(
                 float maxHunger = buf.readFloat();
                 int expToNext = buf.readInt();
                 boolean isCreative = buf.readBoolean();
-                
-                // 读取最喜欢的食物列表
+
                 int foodCount = buf.readInt();
                 List<String> favoriteFoods = new ArrayList<>();
                 for (int i = 0; i < foodCount; i++) {
                     favoriteFoods.add(buf.readString());
                 }
-                
-                // 读取自定义名字
+
                 String customName = buf.readString();
-                
+
+                int enchantmentCount = buf.readInt();
+                List<GhastEnchantment> enchantments = new ArrayList<>();
+                for (int i = 0; i < enchantmentCount; i++) {
+                    String typeId = buf.readString();
+                    int enchantmentLevel = buf.readInt();
+                    GhastEnchantmentType.fromId(typeId)
+                        .ifPresentOrElse(
+                            type -> enchantments.add(new GhastEnchantment(type, enchantmentLevel)),
+                            () -> enchantments.add(GhastEnchantment.EMPTY)
+                        );
+                }
+
                 return new SyncGhastDataPayload(
                     entityId, level, experience, hunger,
                     maxHealth, currentHealth, maxHunger, expToNext,
-                    isCreative, favoriteFoods, customName
+                    isCreative, favoriteFoods, customName, enchantments
                 );
             }
         );

@@ -2,11 +2,14 @@ package me.noramibu;
 
 import me.noramibu.accessor.HappyGhastDataAccessor;
 import me.noramibu.data.HappyGhastData;
+import me.noramibu.enchant.GhastEnchantment;
+import me.noramibu.enchant.GhastEnchantmentType;
 import me.noramibu.network.GreetGhastPayload;
 import me.noramibu.network.OpenGhastGuiPayload;
 import me.noramibu.network.RenameGhastPayload;
 import me.noramibu.network.RequestGhastDataPayload;
 import me.noramibu.network.SyncGhastDataPayload;
+import me.noramibu.network.UpdateGhastEnchantmentsPayload;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
@@ -58,6 +61,12 @@ public class NetworkHandler {
             SyncGhastDataPayload.CODEC
         );
         
+        // 注册更新附魔的网络包（客户端到服务端）
+        PayloadTypeRegistry.playC2S().register(
+            UpdateGhastEnchantmentsPayload.ID,
+            UpdateGhastEnchantmentsPayload.CODEC
+        );
+        
         // 注册问候快乐恶魂的处理器
         ServerPlayNetworking.registerGlobalReceiver(
             GreetGhastPayload.ID,
@@ -102,21 +111,7 @@ public class NetworkHandler {
                         HappyGhastData data = getOrCreateGhastData(ghast);
                         
                         // 发送数据到客户端并打开GUI
-                        SyncGhastDataPayload syncPayload = new SyncGhastDataPayload(
-                            ghast.getId(),
-                            data.getLevel(),
-                            data.getExperience(),
-                            data.getHunger(),
-                            data.getMaxHealth(),
-                            ghast.getHealth(),
-                            data.getMaxHunger(),
-                            data.getExpToNextLevel(),
-                            player.isCreative(),  // 玩家创造模式状态
-                            data.getFavoriteFoods(),  // 最喜欢的食物列表
-                            data.getCustomName() != null ? data.getCustomName() : ""  // 自定义名字
-                        );
-                        
-                        ServerPlayNetworking.send(player, syncPayload);
+                          ServerPlayNetworking.send(player, createSyncPayload(ghast, player, data));
                         
                         Chestonghast.LOGGER.info("玩家 {} 打开了快乐恶魂GUI", player.getName().getString());
                     }
@@ -138,21 +133,7 @@ public class NetworkHandler {
                         HappyGhastData data = getOrCreateGhastData(ghast);
                         
                         // 发送最新数据到客户端
-                        SyncGhastDataPayload syncPayload = new SyncGhastDataPayload(
-                            ghast.getId(),
-                            data.getLevel(),
-                            data.getExperience(),
-                            data.getHunger(),
-                            data.getMaxHealth(),
-                            ghast.getHealth(),
-                            data.getMaxHunger(),
-                            data.getExpToNextLevel(),
-                            player.isCreative(),
-                            data.getFavoriteFoods(),
-                            data.getCustomName() != null ? data.getCustomName() : ""
-                        );
-                        
-                        ServerPlayNetworking.send(player, syncPayload);
+                          ServerPlayNetworking.send(player, createSyncPayload(ghast, player, data));
                     }
                 });
             }
@@ -184,11 +165,76 @@ public class NetworkHandler {
                             ghast.setCustomNameVisible(false);
                         }
                         
-                        Chestonghast.LOGGER.info("玩家 {} 将快乐恶魂改名为：{}", 
+                          Chestonghast.LOGGER.info("玩家 {} 将快乐恶魂改名为：{}", 
                             player.getName().getString(), newName);
                     }
                 });
             }
+        );
+        
+        // 注册更新附魔的处理器
+        ServerPlayNetworking.registerGlobalReceiver(
+            UpdateGhastEnchantmentsPayload.ID,
+            (payload, context) -> context.server().execute(() -> {
+                ServerPlayerEntity player = context.player();
+                Entity entity = player.getEntityWorld().getEntityById(payload.entityId());
+                
+                if (!(entity instanceof HappyGhastEntity ghast)) {
+                    return;
+                }
+                
+                HappyGhastData data = getOrCreateGhastData(ghast);
+                int slot = payload.slot();
+                
+                if (slot < 0 || slot >= GhastEnchantment.MAX_SLOTS) {
+                    player.sendMessage(Text.translatable("message.chest-on-ghast.enchantment_invalid_slot"), true);
+                    return;
+                }
+                
+                GhastEnchantmentType type = GhastEnchantmentType.fromId(payload.enchantmentId())
+                    .orElse(GhastEnchantmentType.NONE);
+                
+                if (type != GhastEnchantmentType.NONE && data.getLevel() < type.getRequiredLevel()) {
+                    player.sendMessage(
+                        Text.translatable(
+                            "message.chest-on-ghast.enchantment_level_requirement",
+                            type.getDisplayText(),
+                            type.getRequiredLevel()
+                        ),
+                        true
+                    );
+                    ServerPlayNetworking.send(player, createSyncPayload(ghast, player, data));
+                    return;
+                }
+                
+                GhastEnchantment enchantment = type == GhastEnchantmentType.NONE
+                    ? GhastEnchantment.EMPTY
+                    : new GhastEnchantment(type, payload.level());
+                
+                data.setEnchantment(slot, enchantment);
+                saveGhastData(ghast, data);
+                
+                ServerPlayNetworking.send(player, createSyncPayload(ghast, player, data));
+                
+                player.sendMessage(
+                    Text.translatable(
+                        "message.chest-on-ghast.enchantment_updated",
+                        slot + 1,
+                        type.getDisplayText(),
+                        formatEnchantmentLevel(enchantment.level())
+                    ),
+                    false
+                );
+                
+                Chestonghast.LOGGER.info(
+                    "玩家 {} 更新快乐恶魂 {} 的附魔槽 {} 为 {} 等级 {}",
+                    player.getName().getString(),
+                    ghast.getUuidAsString(),
+                    slot,
+                    type.getId(),
+                    enchantment.level()
+                );
+            })
         );
     }
 
@@ -257,6 +303,41 @@ public class NetworkHandler {
         if (ghast instanceof HappyGhastDataAccessor accessor) {
             accessor.setGhastData(data);
         }
+    }
+    
+    /**
+     * 构建同步数据网络包，避免重复的字段拼装
+     */
+    public static SyncGhastDataPayload createSyncPayload(HappyGhastEntity ghast, ServerPlayerEntity player, HappyGhastData data) {
+        return new SyncGhastDataPayload(
+            ghast.getId(),
+            data.getLevel(),
+            data.getExperience(),
+            data.getHunger(),
+            data.getMaxHealth(),
+            ghast.getHealth(),
+            data.getMaxHunger(),
+            data.getExpToNextLevel(),
+            player.isCreative(),
+            data.getFavoriteFoods(),
+            data.getCustomName() != null ? data.getCustomName() : "",
+            data.getEnchantments()
+        );
+    }
+    
+    /**
+     * 将等级数字转换成罗马数字，用于UI提示
+     */
+    private static Text formatEnchantmentLevel(int level) {
+        if (level <= 0) {
+            return Text.literal("-");
+        }
+        return switch (level) {
+            case 1 -> Text.literal("I");
+            case 2 -> Text.literal("II");
+            case 3 -> Text.literal("III");
+            default -> Text.literal(String.valueOf(level));
+        };
     }
 }
 
