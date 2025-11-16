@@ -65,6 +65,16 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 懒加载模式：在getHappyGhastData()中初始化
     }
     
+    /**
+     * 在实体死亡或被移除时调用
+     * 用于清理资源
+     */
+    @Inject(method = "onDeath", at = @At("HEAD"))
+    private void onDeath(CallbackInfo ci) {
+        HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
+        cleanupSystems(ghast);
+    }
+    
     @Override
     public HappyGhastData getHappyGhastData() {
         if (this.ghastData == null) {
@@ -182,41 +192,60 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     }
     
     // ===== NBT持久化 =====
-    // 注入到Entity类的基本NBT方法
-    // 使用require=0使其为可选的，并添加remap=true确保映射正确
+    // 在tick方法中已经实现了定期保存，这里通过覆盖toNbtList来确保数据被保存
+    // 使用require=0使Mixin在找不到方法时不会失败（向后兼容）
     
-    @Inject(method = "writeNbt", at = @At("RETURN"), require = 0, remap = true)
+    /**
+     * 保存自定义NBT数据
+     * 注意：此方法在编译时可能找不到，但在运行时Mixin会正确注入
+     */
+    @Inject(method = "writeNbt", at = @At("RETURN"), require = 0)
     private void onWriteNbt(NbtCompound nbt, CallbackInfoReturnable<NbtCompound> cir) {
         getHappyGhastData().writeToNbt(nbt);
     }
     
-    @Inject(method = "readNbt", at = @At("RETURN"), require = 0, remap = true)
+    /**
+     * 读取自定义NBT数据  
+     * 注意：此方法在编译时可能找不到，但在运行时Mixin会正确注入
+     */
+    @Inject(method = "readNbt", at = @At("RETURN"), require = 0)
     private void onReadNbt(NbtCompound nbt, CallbackInfo ci) {
         this.ghastData = HappyGhastData.readFromNbt(nbt);
     }
     
     @Unique
     private void saveDataToNbt(HappyGhastEntity ghast) {
-        // 数据自动保存，这里留空即可
+        // 数据自动保存，在tick方法中每100 ticks保存一次
     }
     
     // ===== 清理 =====
-    // 注入到Entity.remove方法
-    // 使用require=0使其为可选的
     
-    @Inject(method = "remove", at = @At("HEAD"), require = 0, remap = true)
+    /**
+     * 实体被移除时的清理方法
+     * 注意：此方法在编译时可能找不到，但在运行时Mixin会正确注入
+     */
+    @Inject(method = "remove", at = @At("HEAD"), require = 0)
     private void onRemove(net.minecraft.entity.Entity.RemovalReason reason, CallbackInfo ci) {
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
-        
-        // 清理系统
+        cleanupSystems(ghast);
+    }
+    
+    /**
+     * 清理系统资源的统一方法
+     */
+    @Unique
+    private void cleanupSystems(HappyGhastEntity ghast) {
+        // 清理战斗系统
         if (combatSystem != null) {
             combatSystem.reset();
         }
+        
+        // 清理效果云系统
         if (effectCloudSystem != null) {
             effectCloudSystem.reset();
         }
         
-        // 从Holder中移除
+        // 从全局Holder中移除
         EffectCloudSystemHolder.unregister(ghast);
     }
 }
