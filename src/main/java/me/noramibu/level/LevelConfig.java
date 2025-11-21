@@ -18,13 +18,18 @@ public class LevelConfig {
         private final float maxHunger;
         private final int expToNextLevel;
         private final float hungerDecayRate;
+        private final int fireballPower;
+        private final int attackCooldownTicks;
         
-        public LevelData(int level, float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayRate) {
+        public LevelData(int level, float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayRate,
+                         int fireballPower, int attackCooldownTicks) {
             this.level = level;
             this.maxHealth = maxHealth;
             this.maxHunger = maxHunger;
             this.expToNextLevel = expToNextLevel;
             this.hungerDecayRate = hungerDecayRate;
+            this.fireballPower = fireballPower;
+            this.attackCooldownTicks = attackCooldownTicks;
         }
         
         public int getLevel() { return level; }
@@ -32,6 +37,8 @@ public class LevelConfig {
         public float getMaxHunger() { return maxHunger; }
         public int getExpToNextLevel() { return expToNextLevel; }
         public float getHungerDecayRate() { return hungerDecayRate; }
+        public int getFireballPower() { return fireballPower; }
+        public int getAttackCooldownTicks() { return attackCooldownTicks; }
     }
     
     /**
@@ -49,7 +56,9 @@ public class LevelConfig {
             config.maxHealth,
             config.maxHunger,
             config.expToNextLevel,
-            hungerDecayRate
+            hungerDecayRate,
+            config.fireballPower,
+            config.attackCooldownTicks
         );
     }
     
