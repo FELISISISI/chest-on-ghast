@@ -87,6 +87,7 @@ public class GhastConfig {
             try (FileReader reader = new FileReader(CONFIG_FILE)) {
                 GhastConfig config = GSON.fromJson(reader, GhastConfig.class);
                 if (config != null && config.levels != null && !config.levels.isEmpty()) {
+                    config.ensureCombatDefaults();
                     Chestonghast.LOGGER.info("已从配置文件加载快乐恶魂配置：{}", CONFIG_FILE.getAbsolutePath());
                     return config;
                 }
@@ -100,6 +101,26 @@ public class GhastConfig {
         GhastConfig config = createDefault();
         config.save();
         return config;
+    }
+    
+    /**
+     * 为旧版本配置补全战斗相关字段，避免缺省值导致战斗失衡
+     */
+    private void ensureCombatDefaults() {
+        GhastConfig defaults = createDefault();
+        
+        for (int level = 1; level <= 6; level++) {
+            LevelConfig defaultConfig = defaults.levels.get(level);
+            LevelConfig current = this.levels.computeIfAbsent(level, lvl -> new LevelConfig());
+            
+            if (current.maxHealth == 0) current.maxHealth = defaultConfig.maxHealth;
+            if (current.maxHunger == 0) current.maxHunger = defaultConfig.maxHunger;
+            if (current.expToNextLevel == 0 && level != 6) current.expToNextLevel = defaultConfig.expToNextLevel;
+            if (current.hungerDecayMultiplier == 0) current.hungerDecayMultiplier = defaultConfig.hungerDecayMultiplier;
+            if (current.fireballPower <= 0) current.fireballPower = defaultConfig.fireballPower;
+            if (current.attackCooldownTicks <= 0) current.attackCooldownTicks = defaultConfig.attackCooldownTicks;
+            if (current.fireballDamage <= 0) current.fireballDamage = defaultConfig.fireballDamage;
+        }
     }
     
     /**
