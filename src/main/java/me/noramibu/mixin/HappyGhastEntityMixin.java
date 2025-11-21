@@ -81,6 +81,172 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 添加跟随手持食物的玩家的AI
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         this.goalSelector.add(3, new FollowPlayerWithFoodGoal(ghast, 1.0, 6.0f, 3.0f));
+        
+        // 添加战斗AI - 攻击附近的敌对生物
+        this.goalSelector.add(1, new AttackHostileGoal(ghast));
+    }
+    
+    /**
+     * 自定义AI Goal: 攻击附近的敌对生物
+     * 快乐恶魂会自动检测并攻击附近的敌对生物，保护玩家
+     */
+    @Unique
+    private static class AttackHostileGoal extends net.minecraft.entity.ai.goal.Goal {
+        private final HappyGhastEntity ghast;
+        private net.minecraft.entity.LivingEntity target;
+        private int fireballCooldown;
+        
+        public AttackHostileGoal(HappyGhastEntity ghast) {
+            this.ghast = ghast;
+            this.fireballCooldown = 0;
+            this.setControls(java.util.EnumSet.of(Control.MOVE, Control.LOOK));
+        }
+        
+        @Override
+        public boolean canStart() {
+            // 只在服务端执行AI逻辑
+            if (ghast.getEntityWorld().isClient()) {
+                return false;
+            }
+            
+            // 查找附近16格内的敌对生物
+            java.util.List<net.minecraft.entity.mob.HostileEntity> hostiles = 
+                ghast.getEntityWorld().getEntitiesByClass(
+                    net.minecraft.entity.mob.HostileEntity.class,
+                    ghast.getBoundingBox().expand(16.0),
+                    entity -> entity.isAlive() && entity.isAttackable()
+                );
+            
+            // 找到最近的敌对生物
+            target = null;
+            double closestDistance = Double.MAX_VALUE;
+            
+            for (net.minecraft.entity.mob.HostileEntity hostile : hostiles) {
+                double distance = ghast.squaredDistanceTo(hostile);
+                if (distance < closestDistance) {
+                    closestDistance = distance;
+                    target = hostile;
+                }
+            }
+            
+            return target != null;
+        }
+        
+        @Override
+        public boolean shouldContinue() {
+            // 检查目标是否仍然有效
+            if (target == null || !target.isAlive()) {
+                return false;
+            }
+            
+            // 检查目标是否还在范围内（18格，比检测范围稍大一点，避免频繁切换）
+            double distance = ghast.squaredDistanceTo(target);
+            return distance <= (18.0 * 18.0);
+        }
+        
+        @Override
+        public void start() {
+            this.fireballCooldown = 0;
+        }
+        
+        @Override
+        public void stop() {
+            this.target = null;
+        }
+        
+        @Override
+        public void tick() {
+            if (target == null) {
+                return;
+            }
+            
+            // 看向目标
+            ghast.getLookControl().lookAt(target, 10.0f, ghast.getMaxLookPitchChange());
+            
+            // 减少冷却时间
+            if (fireballCooldown > 0) {
+                fireballCooldown--;
+                return;
+            }
+            
+            // 获取快乐恶魂的数据以确定等级
+            HappyGhastData data = null;
+            if (ghast instanceof HappyGhastDataAccessor accessor) {
+                data = accessor.getGhastData();
+            }
+            
+            // 根据等级确定火球威力和冷却时间
+            int level = (data != null) ? data.getLevel() : 1;
+            int fireballPower = getFireballPower(level);
+            int cooldownTicks = getCooldownTicks(level);
+            
+            // 计算目标位置和方向
+            double dx = target.getX() - ghast.getX();
+            double dy = target.getEyeY() - ghast.getEyeY();
+            double dz = target.getZ() - ghast.getZ();
+            
+            // 发射火球
+            net.minecraft.entity.projectile.FireballEntity fireball = new net.minecraft.entity.projectile.FireballEntity(
+                ghast.getEntityWorld(),
+                ghast,
+                new net.minecraft.util.math.Vec3d(dx, dy, dz).normalize(),
+                fireballPower
+            );
+            
+            // 设置火球的初始位置（从快乐恶魂的眼睛位置发射）
+            fireball.setPosition(
+                ghast.getX(),
+                ghast.getEyeY(),
+                ghast.getZ()
+            );
+            
+            // 生成火球实体
+            ghast.getEntityWorld().spawnEntity(fireball);
+            
+            // 播放攻击音效
+            ghast.playSound(
+                net.minecraft.sound.SoundEvents.ENTITY_GHAST_SHOOT,
+                1.0f,
+                1.0f + (ghast.getRandom().nextFloat() - ghast.getRandom().nextFloat()) * 0.2f
+            );
+            
+            // 设置冷却时间
+            fireballCooldown = cooldownTicks;
+        }
+        
+        /**
+         * 根据等级获取火球威力
+         * @param level 快乐恶魂的等级
+         * @return 火球威力（爆炸强度）
+         */
+        private int getFireballPower(int level) {
+            return switch (level) {
+                case 1 -> 1;
+                case 2 -> 2;
+                case 3 -> 3;
+                case 4 -> 4;
+                case 5 -> 5;
+                case 6 -> 6;
+                default -> 1;
+            };
+        }
+        
+        /**
+         * 根据等级获取攻击冷却时间
+         * @param level 快乐恶魂的等级
+         * @return 冷却时间（tick数，20 ticks = 1秒）
+         */
+        private int getCooldownTicks(int level) {
+            return switch (level) {
+                case 1 -> 60;  // 3.0秒
+                case 2 -> 50;  // 2.5秒
+                case 3 -> 40;  // 2.0秒
+                case 4 -> 30;  // 1.5秒
+                case 5 -> 20;  // 1.0秒
+                case 6 -> 15;  // 0.75秒
+                default -> 60;
+            };
+        }
     }
     
     /**
