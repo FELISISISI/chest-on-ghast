@@ -10,7 +10,9 @@ import net.minecraft.component.DataComponentTypes;
 import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributes;
-import net.minecraft.entity.mob.HostileEntity;
+import net.minecraft.entity.damage.DamageSource;
+import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.passive.HappyGhastEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.projectile.FireballEntity;
@@ -66,15 +68,15 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     
     // 当前锁定的敌对生物
     @Unique
-    private HostileEntity currentTarget;
+    private MobEntity currentTarget;
     
     // 玩家感知范围 - 识别需要保护的玩家
     @Unique
     private static final double PLAYER_ALERT_RADIUS = 16.0;
     
-    // 敌对生物探测半径 - 判断是否需要进入战斗
+    // 敌对生物探测半径 - 判断是否需要进入战斗（满足“方圆40格”需求）
     @Unique
-    private static final double HOSTILE_DETECTION_RADIUS = 16.0;
+    private static final double HOSTILE_DETECTION_RADIUS = 40.0;
     
     // 这个构造函数仅为了满足编译，永远不会被调用
     protected HappyGhastEntityMixin(net.minecraft.entity.EntityType<? extends net.minecraft.entity.mob.MobEntity> entityType, net.minecraft.world.World world) {
@@ -468,7 +470,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         }
         
         // 确认玩家附近是否存在敌对生物
-        HostileEntity hostileTarget = findNearestHostileAroundPlayer(nearbyPlayer, HOSTILE_DETECTION_RADIUS);
+        MobEntity hostileTarget = findNearestHostileAroundPlayer(nearbyPlayer, HOSTILE_DETECTION_RADIUS);
         if (hostileTarget == null) {
             resetCombatState(ghast);
             return;
@@ -496,32 +498,39 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
      * 搜索目标玩家周围最近的敌对生物
      */
     @Unique
-    private HostileEntity findNearestHostileAroundPlayer(PlayerEntity player, double radius) {
-        List<HostileEntity> hostiles = player.getEntityWorld().getEntitiesByClass(
-            HostileEntity.class,
+    private MobEntity findNearestHostileAroundPlayer(PlayerEntity player, double radius) {
+        List<MobEntity> hostiles = player.getEntityWorld().getEntitiesByClass(
+            MobEntity.class,
             player.getBoundingBox().expand(radius),
-            entity -> entity != null && entity.isAlive() && !entity.isRemoved()
+            entity -> entity != null && entity.isAlive() && !entity.isRemoved() && canGhastAttack(entity)
         );
         
-        HostileEntity closest = null;
-        double closestDistance = Double.MAX_VALUE;
+        MobEntity prioritized = null;
+        double prioritizedDistance = Double.MAX_VALUE;
+        MobEntity fallback = null;
+        double fallbackDistance = Double.MAX_VALUE;
         
-        for (HostileEntity hostile : hostiles) {
+        for (MobEntity hostile : hostiles) {
             double distance = hostile.squaredDistanceTo(player);
-            if (distance < closestDistance) {
-                closestDistance = distance;
-                closest = hostile;
+            if (isAggressiveTowardsPlayer(hostile, player)) {
+                if (distance < prioritizedDistance) {
+                    prioritizedDistance = distance;
+                    prioritized = hostile;
+                }
+            } else if (distance < fallbackDistance) {
+                fallbackDistance = distance;
+                fallback = hostile;
             }
         }
         
-        return closest;
+        return prioritized != null ? prioritized : fallback;
     }
     
     /**
      * 计算目标方向并发射火球保护玩家
      */
     @Unique
-    private void shootFireballAtTarget(HappyGhastEntity ghast, HostileEntity target, int fireballPower) {
+    private void shootFireballAtTarget(HappyGhastEntity ghast, MobEntity target, int fireballPower) {
         double deltaX = target.getX() - ghast.getX();
         double deltaY = target.getBodyY(0.5) - ghast.getBodyY(0.5);
         double deltaZ = target.getZ() - ghast.getZ();
@@ -562,6 +571,31 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         this.guardianPlayer = null;
         this.currentTarget = null;
         ghast.setAttacking(false);
+    }
+    
+    /**
+     * 判断敌对生物是否为合法攻击目标（史莱姆等友好对象会被排除）
+     */
+    @Unique
+    private boolean canGhastAttack(MobEntity entity) {
+        return entity instanceof Monster && entity.getType() != EntityType.SLIME;
+    }
+    
+    /**
+     * 判断敌对生物是否正在或刚刚伤害玩家，用于优先级排序
+     */
+    @Unique
+    private boolean isAggressiveTowardsPlayer(MobEntity hostile, PlayerEntity player) {
+        if (hostile.getTarget() == player) {
+            return true;
+        }
+        
+        DamageSource recentDamage = player.getRecentDamageSource();
+        if (recentDamage != null && recentDamage.getAttacker() == hostile) {
+            return true;
+        }
+        
+        return player.getAttacker() == hostile;
     }
     
     
