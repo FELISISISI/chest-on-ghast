@@ -41,17 +41,19 @@ public class GhastConfig {
         public float hungerDecayMultiplier; // 饱食度消耗倍率（每级递减10%）
         public int fireballPower = 1;    // 火球爆炸威力
         public int attackCooldownTicks = 60; // 攻击冷却（ticks）
+        public float fireballDamage = 6.0f;  // 火球直接伤害
         
         public LevelConfig() {}
         
         public LevelConfig(float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayMultiplier,
-                           int fireballPower, int attackCooldownTicks) {
+                           int fireballPower, int attackCooldownTicks, float fireballDamage) {
             this.maxHealth = maxHealth;
             this.maxHunger = maxHunger;
             this.expToNextLevel = expToNextLevel;
             this.hungerDecayMultiplier = hungerDecayMultiplier;
             this.fireballPower = fireballPower;
             this.attackCooldownTicks = attackCooldownTicks;
+            this.fireballDamage = fireballDamage;
         }
     }
     
@@ -110,12 +112,12 @@ public class GhastConfig {
         float mcDaySeconds = 1200.0f;
         
         // 配置6个等级，每级饱食度翻倍，消耗速率递减10%
-        config.levels.put(1, new LevelConfig(20.0f, 100.0f, 100, 1.0f, 1, 60));      // 等级1：100%速率
-        config.levels.put(2, new LevelConfig(30.0f, 200.0f, 200, 0.9f, 2, 50));      // 等级2：90%速率
-        config.levels.put(3, new LevelConfig(45.0f, 400.0f, 350, 0.81f, 3, 40));     // 等级3：81%速率
-        config.levels.put(4, new LevelConfig(65.0f, 800.0f, 550, 0.729f, 4, 30));    // 等级4：72.9%速率
-        config.levels.put(5, new LevelConfig(90.0f, 1600.0f, 800, 0.6561f, 5, 20));  // 等级5：65.61%速率
-        config.levels.put(6, new LevelConfig(120.0f, 3200.0f, 0, 0.59049f, 6, 15));  // 等级6：59.05%速率
+        config.levels.put(1, new LevelConfig(20.0f, 100.0f, 100, 1.0f, 1, 60, 6.0f));
+        config.levels.put(2, new LevelConfig(30.0f, 200.0f, 200, 0.9f, 2, 48, 7.5f));
+        config.levels.put(3, new LevelConfig(45.0f, 400.0f, 350, 0.81f, 3, 38, 9.5f));
+        config.levels.put(4, new LevelConfig(65.0f, 800.0f, 550, 0.729f, 4, 28, 12.0f));
+        config.levels.put(5, new LevelConfig(90.0f, 1600.0f, 800, 0.6561f, 5, 20, 15.0f));
+        config.levels.put(6, new LevelConfig(120.0f, 3200.0f, 0, 0.59049f, 6, 12, 18.0f));
         
         return config;
     }

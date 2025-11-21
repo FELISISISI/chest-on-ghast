@@ -11,11 +11,11 @@ import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributes;
 import net.minecraft.entity.damage.DamageSource;
+import me.noramibu.entity.HappyGhastFireballEntity;
 import net.minecraft.entity.mob.MobEntity;
 import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.passive.HappyGhastEntity;
 import net.minecraft.entity.player.PlayerEntity;
-import net.minecraft.entity.projectile.FireballEntity;
 import net.minecraft.entity.vehicle.ChestMinecartEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
@@ -488,9 +488,12 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         ghast.getLookControl().lookAt(hostileTarget, 30.0f, ghast.getMaxLookPitchChange());
         
         LevelConfig.LevelData levelData = LevelConfig.getLevelData(this.ghastData.getLevel());
+        int fireballPower = Math.max(1, levelData.getFireballPower());
+        int cooldownTicks = Math.max(5, levelData.getAttackCooldownTicks());
+        float fireballDamage = Math.max(6.0f, levelData.getFireballDamage());
         if (this.fireballCooldownTicks <= 0) {
-            shootFireballAtTarget(ghast, hostileTarget, levelData.getFireballPower());
-            this.fireballCooldownTicks = Math.max(5, levelData.getAttackCooldownTicks());
+            shootFireballAtTarget(ghast, hostileTarget, fireballPower, fireballDamage);
+            this.fireballCooldownTicks = cooldownTicks;
         }
     }
     
@@ -530,17 +533,18 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
      * 计算目标方向并发射火球保护玩家
      */
     @Unique
-    private void shootFireballAtTarget(HappyGhastEntity ghast, MobEntity target, int fireballPower) {
+    private void shootFireballAtTarget(HappyGhastEntity ghast, MobEntity target, int fireballPower, float fireballDamage) {
         double deltaX = target.getX() - ghast.getX();
         double deltaY = target.getBodyY(0.5) - ghast.getBodyY(0.5);
         double deltaZ = target.getZ() - ghast.getZ();
         Vec3d direction = new Vec3d(deltaX, deltaY, deltaZ);
         
-        FireballEntity fireball = new FireballEntity(
+        HappyGhastFireballEntity fireball = new HappyGhastFireballEntity(
             ghast.getEntityWorld(),
             ghast,
             direction,
-            fireballPower
+            fireballPower,
+            fireballDamage
         );
         
         double spawnY = ghast.getBodyY(0.5) + 0.5;
