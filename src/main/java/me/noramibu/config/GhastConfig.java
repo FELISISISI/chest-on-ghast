@@ -31,6 +31,12 @@ public class GhastConfig {
     // 喂食配置
     public FoodConfig foodConfig = new FoodConfig();
     
+    // 调试模式，用于输出战斗细节
+    public boolean debugMode = false;
+    
+    // 用于生成默认快乐恶魂名字的全局计数器
+    public int nextGhastNameIndex = 1;
+    
     /**
      * 等级配置类
      */
@@ -88,6 +94,7 @@ public class GhastConfig {
                 GhastConfig config = GSON.fromJson(reader, GhastConfig.class);
                 if (config != null && config.levels != null && !config.levels.isEmpty()) {
                     config.ensureCombatDefaults();
+                    config.save();
                     Chestonghast.LOGGER.info("已从配置文件加载快乐恶魂配置：{}", CONFIG_FILE.getAbsolutePath());
                     return config;
                 }
@@ -121,6 +128,20 @@ public class GhastConfig {
             if (current.attackCooldownTicks <= 0) current.attackCooldownTicks = defaultConfig.attackCooldownTicks;
             if (current.fireballDamage <= 0) current.fireballDamage = defaultConfig.fireballDamage;
         }
+        
+        if (this.nextGhastNameIndex < 1) {
+            this.nextGhastNameIndex = 1;
+        }
+    }
+    
+    /**
+     * 申请下一个快乐恶魂编号，用于生成“快乐恶魂XX”名称
+     */
+    public synchronized int claimNextGhastNameIndex() {
+        int currentIndex = this.nextGhastNameIndex;
+        this.nextGhastNameIndex = Math.max(currentIndex + 1, 1);
+        this.save();
+        return currentIndex;
     }
     
     /**
@@ -128,6 +149,7 @@ public class GhastConfig {
      */
     private static GhastConfig createDefault() {
         GhastConfig config = new GhastConfig();
+        config.nextGhastNameIndex = 1;
         
         // MC一昼夜 = 1200秒
         float mcDaySeconds = 1200.0f;

@@ -3,6 +3,7 @@ package me.noramibu.mixin;
 import me.noramibu.Chestonghast;
 import me.noramibu.accessor.HappyGhastDataAccessor;
 import me.noramibu.data.HappyGhastData;
+import me.noramibu.config.GhastConfig;
 import me.noramibu.level.LevelConfig;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -114,6 +115,10 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 添加跟随手持食物的玩家的AI
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         this.goalSelector.add(3, new FollowPlayerWithFoodGoal(ghast, 1.0, 6.0f, 3.0f));
+        
+        if (!ghast.getEntityWorld().isClient()) {
+            ensureDefaultName(ghast);
+        }
     }
     
     /**
@@ -261,6 +266,9 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             
             // 确保血量上限正确
             updateMaxHealth(ghast);
+            
+            // 确保默认名称和名称标签同步
+            ensureDefaultName(ghast);
             
             // 处理自动战斗逻辑，保护附近玩家
             handleCombatBehavior(ghast);
@@ -494,6 +502,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         if (this.fireballCooldownTicks <= 0) {
             shootFireballAtTarget(ghast, hostileTarget, fireballPower, fireballDamage);
             this.fireballCooldownTicks = cooldownTicks;
+            sendDebugCombatMessage(ghast, nearbyPlayer, levelData.getLevel(), fireballDamage, cooldownTicks);
         }
     }
     
@@ -575,6 +584,62 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         this.guardianPlayer = null;
         this.currentTarget = null;
         ghast.setAttacking(false);
+    }
+    
+    /**
+     * 当调试模式开启时，将战斗数据发送到聊天栏
+     */
+    @Unique
+    private void sendDebugCombatMessage(HappyGhastEntity ghast, PlayerEntity player, int level, float fireballDamage, int cooldownTicks) {
+        GhastConfig config = GhastConfig.getInstance();
+        if (!config.debugMode) {
+            return;
+        }
+        
+        if (!(player instanceof ServerPlayerEntity serverPlayer)) {
+            return;
+        }
+        
+        String ghastName = ghast.getDisplayName().getString();
+        float cooldownSeconds = cooldownTicks / 20.0f;
+        String message = String.format(
+            "[调试] %s (Lv.%d) 火球伤害 %.1f / 冷却 %.2fs",
+            ghastName,
+            level,
+            fireballDamage,
+            cooldownSeconds
+        );
+        serverPlayer.sendMessage(Text.literal(message), false);
+    }
+    
+    /**
+     * 为每一只快乐恶魂分配默认名字并同步名称标签
+     */
+    @Unique
+    private void ensureDefaultName(HappyGhastEntity ghast) {
+        if (this.ghastData == null || ghast.getEntityWorld().isClient()) {
+            return;
+        }
+        
+        String storedName = this.ghastData.getCustomName();
+        if (storedName == null || storedName.isEmpty()) {
+            int index = GhastConfig.getInstance().claimNextGhastNameIndex();
+            storedName = String.format("快乐恶魂%02d", index);
+            this.ghastData.setCustomName(storedName);
+        }
+        
+        if (storedName != null && !storedName.isEmpty()) {
+            applyNameTag(ghast, storedName);
+        }
+    }
+    
+    @Unique
+    private void applyNameTag(HappyGhastEntity ghast, String name) {
+        if (name == null || name.isEmpty()) {
+            return;
+        }
+        ghast.setCustomName(Text.literal(name));
+        ghast.setCustomNameVisible(true);
     }
     
     /**
