@@ -316,6 +316,19 @@ public class GhastConfig {
         return elementConfigs.getOrDefault(element.getId(), createDefaultElementConfig(element));
     }
     
+    public ElementLevelConfig getElementLevelConfig(GhastElement element, int level) {
+        ensureElementConfigs();
+        ElementConfig config = getElementConfig(element);
+        ElementLevelConfig levelConfig = config.levels.get(level);
+        if (levelConfig == null) {
+            Map<Integer, ElementLevelConfig> defaults = createDefaultElementLevels(element);
+            levelConfig = defaults.getOrDefault(level, defaults.get(1));
+            levelConfig = copyElementLevelConfig(levelConfig);
+            config.levels.put(level, levelConfig);
+        }
+        return levelConfig;
+    }
+    
     /**
      * 计算实际饱食度消耗速率
      * @param level 等级

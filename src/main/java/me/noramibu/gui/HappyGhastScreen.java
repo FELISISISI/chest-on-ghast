@@ -27,6 +27,7 @@ public class HappyGhastScreen extends Screen {
     private int tickCounter = 0;  // 用于控制请求频率
     private TextFieldWidget nameField;  // 名字输入框
     private String customName;  // 自定义名字
+    private String elementId;
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
@@ -34,6 +35,7 @@ public class HappyGhastScreen extends Screen {
         this.isCreative = payload.isCreative();
         this.favoriteFoods = payload.favoriteFoods();
         this.customName = payload.customName() != null ? payload.customName() : "";
+        this.elementId = payload.elementId();
         updateFromPayload(payload);
     }
     
@@ -91,6 +93,7 @@ public class HappyGhastScreen extends Screen {
         if (!newCustomName.equals(this.customName)) {
             updateCustomName(newCustomName);
         }
+        this.elementId = payload.elementId();
     }
     
     /**

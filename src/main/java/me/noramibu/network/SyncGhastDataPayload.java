@@ -1,6 +1,7 @@
 package me.noramibu.network;
 
 import me.noramibu.Chestonghast;
+import me.noramibu.element.GhastElement;
 import net.minecraft.network.PacketByteBuf;
 import net.minecraft.network.codec.PacketCodec;
 import net.minecraft.network.packet.CustomPayload;
@@ -23,7 +24,8 @@ public record SyncGhastDataPayload(
     int expToNext,         // 升级所需经验
     boolean isCreative,    // 玩家是否为创造模式
     List<String> favoriteFoods,  // 最喜欢的食物（创造模式下显示）
-    String customName      // 自定义名字
+    String customName,     // 自定义名字
+    String elementId       // 属性ID
 ) implements CustomPayload {
     
     // 网络包标识符
@@ -51,9 +53,10 @@ public record SyncGhastDataPayload(
                     buf.writeString(food);
                 }
                 
-                // 写入自定义名字
+                // 写入自定义名字与属性
                 buf.writeString(value.customName != null ? value.customName : "");
-            },
+                buf.writeString(value.elementId != null ? value.elementId : GhastElement.FIRE.getId());
+                },
             buf -> {
                 // 解码器：按顺序读取所有数据
                 int entityId = buf.readInt();
@@ -74,12 +77,13 @@ public record SyncGhastDataPayload(
                 }
                 
                 // 读取自定义名字
-                String customName = buf.readString();
+                    String customName = buf.readString();
+                    String elementId = buf.readString();
                 
                 return new SyncGhastDataPayload(
                     entityId, level, experience, hunger,
-                    maxHealth, currentHealth, maxHunger, expToNext,
-                    isCreative, favoriteFoods, customName
+                        maxHealth, currentHealth, maxHunger, expToNext,
+                        isCreative, favoriteFoods, customName, elementId
                 );
             }
         );
