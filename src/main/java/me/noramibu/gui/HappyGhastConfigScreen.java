@@ -1,5 +1,6 @@
 package me.noramibu.gui;
 
+import me.noramibu.Chestonghast;
 import me.noramibu.network.RequestGhastConfigPayload;
 import me.noramibu.network.SyncGhastConfigPayload;
 import me.noramibu.network.UpdateGhastConfigPayload;
@@ -19,6 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public class HappyGhastConfigScreen extends Screen {
+    private static final Text OFFLINE_MESSAGE = Text.literal("请先进入世界后再调整配置");
     private final Screen parent;
     private boolean dataRequested = false;
     private boolean dataLoaded = false;
@@ -29,6 +31,7 @@ public class HappyGhastConfigScreen extends Screen {
     private final List<TextFieldWidget> textFields = new ArrayList<>();
 
     private CyclingButtonWidget<Boolean> debugToggle;
+    private ButtonWidget saveButton;
 
     public HappyGhastConfigScreen(Screen parent) {
         super(Text.literal("快乐恶魂配置"));
@@ -48,14 +51,18 @@ public class HappyGhastConfigScreen extends Screen {
             .omitKeyText()
             .build(this.width / 2 - 100, 32, 200, 20, Text.literal("调试模式"), (button, value) -> debugMode = value));
 
-        this.addDrawableChild(ButtonWidget.builder(Text.literal("保存"), btn -> saveConfig())
+        this.saveButton = this.addDrawableChild(ButtonWidget.builder(Text.literal("保存"), btn -> saveConfig())
             .dimensions(this.width / 2 - 102, buttonY, 100, 20).build());
+        this.saveButton.active = false;
         this.addDrawableChild(ButtonWidget.builder(Text.literal("返回"), btn -> close())
             .dimensions(this.width / 2 + 2, buttonY, 100, 20).build());
 
-        if (!dataRequested) {
+        if (!dataRequested && hasPlayConnection()) {
             dataRequested = true;
             ClientPlayNetworking.send(new RequestGhastConfigPayload());
+        } else if (!hasPlayConnection()) {
+            // 记录一次离线场景，方便后续排查
+            Chestonghast.LOGGER.debug("HappyGhastConfigScreen opened without active connection; skipping config sync request.");
         }
 
         rebuildFields();
@@ -64,6 +71,12 @@ public class HappyGhastConfigScreen extends Screen {
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
         this.renderBackground(context, mouseX, mouseY, delta);
+        if (!hasPlayConnection()) {
+            context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
+            context.drawCenteredTextWithShadow(this.textRenderer, OFFLINE_MESSAGE, this.width / 2, this.height / 2, 0xFF6666);
+            super.render(context, mouseX, mouseY, delta);
+            return;
+        }
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
 
         if (!dataLoaded) {
@@ -108,6 +121,9 @@ public class HappyGhastConfigScreen extends Screen {
         if (this.debugToggle != null) {
             this.debugToggle.setValue(this.debugMode);
         }
+        if (this.saveButton != null) {
+            this.saveButton.active = true;
+        }
 
         rebuildFields();
     }
@@ -139,7 +155,8 @@ public class HappyGhastConfigScreen extends Screen {
     }
 
     private void saveConfig() {
-        if (!dataLoaded) {
+        if (!dataLoaded || !hasPlayConnection()) {
+            // 没有连接或数据尚未同步时直接返回，避免错误发送
             return;
         }
 
@@ -154,6 +171,13 @@ public class HappyGhastConfigScreen extends Screen {
         }
 
         ClientPlayNetworking.send(new UpdateGhastConfigPayload(levelEntries, elementEntries, debugMode));
+    }
+
+    /**
+     * 判断客户端是否与世界保持连接，避免在主菜单中发送无效数据包.
+     */
+    private boolean hasPlayConnection() {
+        return this.client != null && this.client.getNetworkHandler() != null;
     }
 
     private static class LevelRow {
