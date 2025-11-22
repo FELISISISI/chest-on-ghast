@@ -155,12 +155,12 @@ public class GhastConfig {
         float mcDaySeconds = 1200.0f;
         
         // 配置6个等级，每级饱食度翻倍，消耗速率递减10%
-        config.levels.put(1, new LevelConfig(20.0f, 100.0f, 100, 1.0f, 1, 60, 6.0f));
-        config.levels.put(2, new LevelConfig(30.0f, 200.0f, 200, 0.9f, 2, 48, 7.5f));
-        config.levels.put(3, new LevelConfig(45.0f, 400.0f, 350, 0.81f, 3, 38, 9.5f));
-        config.levels.put(4, new LevelConfig(65.0f, 800.0f, 550, 0.729f, 4, 28, 12.0f));
-        config.levels.put(5, new LevelConfig(90.0f, 1600.0f, 800, 0.6561f, 5, 20, 15.0f));
-        config.levels.put(6, new LevelConfig(120.0f, 3200.0f, 0, 0.59049f, 6, 12, 18.0f));
+        config.levels.put(1, new LevelConfig(20.0f, 100.0f, 100, 1.0f, 1, 60, 6.0f));   // 入门：慢速低伤
+        config.levels.put(2, new LevelConfig(30.0f, 200.0f, 200, 0.9f, 2, 48, 8.0f));   // 稍快并提高爆炸
+        config.levels.put(3, new LevelConfig(45.0f, 400.0f, 350, 0.81f, 3, 36, 11.0f)); // 中级：明显提速
+        config.levels.put(4, new LevelConfig(65.0f, 800.0f, 550, 0.729f, 4, 26, 15.0f));// 高级：半自动火力
+        config.levels.put(5, new LevelConfig(90.0f, 1600.0f, 800, 0.6561f, 5, 18, 20.0f));// 终盘前：高爆高伤
+        config.levels.put(6, new LevelConfig(120.0f, 3200.0f, 0, 0.59049f, 6, 10, 26.0f));// 满级：压制火力
         
         return config;
     }

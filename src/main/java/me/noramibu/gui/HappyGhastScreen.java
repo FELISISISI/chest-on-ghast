@@ -7,7 +7,9 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
 import java.util.List;
 
 public class HappyGhastScreen extends Screen {
@@ -29,10 +31,10 @@ public class HappyGhastScreen extends Screen {
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
         this.entityId = payload.entityId();
-        updateFromPayload(payload);
         this.isCreative = payload.isCreative();
         this.favoriteFoods = payload.favoriteFoods();
-        this.customName = "";  // 初始为空，后续会从服务器同步
+        this.customName = payload.customName() != null ? payload.customName() : "";
+        updateFromPayload(payload);
     }
     
     /**
@@ -58,9 +60,8 @@ public class HappyGhastScreen extends Screen {
         
         // 设置输入框属性
         this.nameField.setMaxLength(32);
-        this.nameField.setText(this.customName.isEmpty() ? 
-            Text.translatable("gui.chest-on-ghast.happy_ghast").getString() : this.customName);
         this.nameField.setPlaceholder(Text.translatable("gui.chest-on-ghast.name_placeholder"));
+        this.nameField.setText(this.customName);
         
         // 当输入框内容改变时，存储临时名字
         this.nameField.setChangedListener(text -> {
@@ -84,7 +85,10 @@ public class HappyGhastScreen extends Screen {
         
         // 更新自定义名字
         String newCustomName = payload.customName();
-        if (newCustomName != null && !newCustomName.equals(this.customName)) {
+        if (newCustomName == null) {
+            newCustomName = "";
+        }
+        if (!newCustomName.equals(this.customName)) {
             updateCustomName(newCustomName);
         }
     }
@@ -93,10 +97,9 @@ public class HappyGhastScreen extends Screen {
      * 更新自定义名字
      */
     public void updateCustomName(String name) {
-        this.customName = name;
+        this.customName = name == null ? "" : name;
         if (this.nameField != null) {
-            this.nameField.setText(name.isEmpty() ? 
-                Text.translatable("gui.chest-on-ghast.happy_ghast").getString() : name);
+            this.nameField.setText(this.customName);
         }
     }
     
@@ -115,13 +118,9 @@ public class HappyGhastScreen extends Screen {
         // 检测焦点状态变化，失去焦点时发送改名请求
         if (this.nameField != null) {
             boolean currentlyFocused = this.nameField.isFocused();
-            if (wasFocused && !currentlyFocused) {
-                // 刚刚失去焦点
-                String newName = this.nameField.getText();
-                if (newName != null && !newName.isEmpty() && !newName.equals(this.customName)) {
-                    ClientPlayNetworking.send(new RenameGhastPayload(this.entityId, newName));
-                    this.customName = newName;
-                }
+                if (wasFocused && !currentlyFocused) {
+                    // 刚刚失去焦点
+                    trySendRename();
             }
             wasFocused = currentlyFocused;
         }
@@ -259,5 +258,33 @@ public class HappyGhastScreen extends Screen {
     @Override
     public boolean shouldPause() {
         return false;
+    }
+    
+    @Override
+    public void close() {
+        trySendRename();
+        super.close();
+    }
+    
+    @Override
+    public boolean keyPressed(KeyInput keyInput) {
+        int keyCode = keyInput.key();
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            trySendRename();
+            return true;
+        }
+        return super.keyPressed(keyInput);
+    }
+    
+    private void trySendRename() {
+        if (this.nameField == null) return;
+        String newName = this.nameField.getText();
+        if (newName == null) return;
+        newName = newName.trim();
+        if (newName.isEmpty() || newName.equals(this.customName)) {
+            return;
+        }
+        ClientPlayNetworking.send(new RenameGhastPayload(this.entityId, newName));
+        this.customName = newName;
     }
 }
