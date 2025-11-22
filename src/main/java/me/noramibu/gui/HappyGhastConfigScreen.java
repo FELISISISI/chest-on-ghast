@@ -70,7 +70,7 @@ public class HappyGhastConfigScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        this.renderBackground(context, mouseX, mouseY, delta);
+        context.fill(0, 0, this.width, this.height, 0xC0101010);
         if (!hasPlayConnection()) {
             context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
             context.drawCenteredTextWithShadow(this.textRenderer, OFFLINE_MESSAGE, this.width / 2, this.height / 2, 0xFF6666);
