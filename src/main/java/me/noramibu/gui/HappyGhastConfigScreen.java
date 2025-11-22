@@ -70,31 +70,35 @@ public class HappyGhastConfigScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
-        context.fill(0, 0, this.width, this.height, 0xC0101010);
+        super.render(context, mouseX, mouseY, delta);
         if (!hasPlayConnection()) {
             context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
             context.drawCenteredTextWithShadow(this.textRenderer, OFFLINE_MESSAGE, this.width / 2, this.height / 2, 0xFF6666);
-            super.render(context, mouseX, mouseY, delta);
             return;
         }
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
 
         if (!dataLoaded) {
             context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("正在请求服务器配置..."), this.width / 2, this.height / 2, 0xAAAAAA);
-        } else {
-            int startY = 60;
-            for (LevelRow row : levelRows) {
-                row.render(context, this.textRenderer, this.width / 2 - 160, startY);
-                startY += 26;
-            }
-
-            startY += 8;
-            for (ElementRow row : elementRows.values()) {
-                row.render(context, this.textRenderer, this.width / 2 - 160, startY);
-                startY += 26;
-            }
+            return;
         }
-        super.render(context, mouseX, mouseY, delta);
+
+        int startY = 60;
+        for (LevelRow row : levelRows) {
+            row.render(context, this.textRenderer, this.width / 2 - 160, startY);
+            startY += 26;
+        }
+
+        startY += 8;
+        for (ElementRow row : elementRows.values()) {
+            row.render(context, this.textRenderer, this.width / 2 - 160, startY);
+            startY += 26;
+        }
+    }
+
+    @Override
+    public void renderBackground(DrawContext context, int mouseX, int mouseY, float delta) {
+        context.fill(0, 0, this.width, this.height, 0xC0101010);
     }
 
     @Override
