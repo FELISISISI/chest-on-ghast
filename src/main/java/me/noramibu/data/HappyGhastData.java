@@ -1,5 +1,6 @@
 package me.noramibu.data;
 
+import me.noramibu.element.GhastElement;
 import me.noramibu.level.LevelConfig;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.nbt.NbtList;
@@ -32,6 +33,9 @@ public class HappyGhastData {
     // 自定义名字
     private String customName;
     
+    // 属性
+    private GhastElement element;
+    
     // 所有可能的食物列表
     private static final String[] ALL_FOODS = {
         "minecraft:apple", "minecraft:golden_apple", "minecraft:enchanted_golden_apple",
@@ -60,6 +64,7 @@ public class HappyGhastData {
         this.hunger = levelData.getMaxHunger();
         this.lastHungerDecayTime = System.currentTimeMillis();
         this.favoriteFoods = generateRandomFavoriteFoods();
+        this.element = null;
     }
     
     /**
@@ -74,6 +79,7 @@ public class HappyGhastData {
         this.hunger = hunger;
         this.lastHungerDecayTime = System.currentTimeMillis();
         this.favoriteFoods = generateRandomFavoriteFoods();
+        this.element = null;
     }
     
     // Getter方法
@@ -82,9 +88,12 @@ public class HappyGhastData {
     public float getHunger() { return hunger; }
     public List<String> getFavoriteFoods() { return favoriteFoods; }
     public String getCustomName() { return customName; }
+    public GhastElement getElement() { return element == null ? GhastElement.FIRE : element; }
     
     // Setter方法
     public void setCustomName(String name) { this.customName = name; }
+    public void setElement(GhastElement element) { this.element = element; }
+    public boolean hasElementAssigned() { return this.element != null; }
     
     /**
      * 检查某个食物是否为最喜欢的食物
@@ -248,6 +257,10 @@ public class HappyGhastData {
         if (customName != null && !customName.isEmpty()) {
             nbt.putString("CustomName", customName);
         }
+        
+        if (element != null) {
+            nbt.putString("Element", element.getId());
+        }
     }
     
     /**
@@ -284,6 +297,10 @@ public class HappyGhastData {
             data.customName = nbt.getString("CustomName").orElse("");
         }
         
+        if (nbt.contains("Element")) {
+            data.element = GhastElement.fromId(nbt.getString("Element").orElse("fire"));
+        }
+        
         return data;
     }
     
@@ -296,6 +313,7 @@ public class HappyGhastData {
         copy.lastHungerDecayTime = this.lastHungerDecayTime;
         copy.favoriteFoods = new ArrayList<>(this.favoriteFoods);
         copy.customName = this.customName;
+        copy.element = this.element;
         return copy;
     }
 }

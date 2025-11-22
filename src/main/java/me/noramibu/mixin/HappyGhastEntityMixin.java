@@ -4,6 +4,7 @@ import me.noramibu.Chestonghast;
 import me.noramibu.accessor.HappyGhastDataAccessor;
 import me.noramibu.data.HappyGhastData;
 import me.noramibu.config.GhastConfig;
+import me.noramibu.element.GhastElement;
 import me.noramibu.level.LevelConfig;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
@@ -22,6 +23,8 @@ import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
 import net.minecraft.registry.Registries;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.tag.BiomeTags;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.server.network.ServerPlayerEntity;
@@ -30,6 +33,7 @@ import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
+import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
@@ -37,6 +41,7 @@ import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
 
+import java.util.EnumMap;
 import java.util.List;
 import net.minecraft.util.math.Vec3d;
 
@@ -70,6 +75,10 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     // 当前锁定的敌对生物
     @Unique
     private MobEntity currentTarget;
+    
+    // 标记是否已为该实体分配属性
+    @Unique
+    private boolean elementAssigned = false;
     
     // 玩家感知范围 - 识别需要保护的玩家
     @Unique
@@ -118,6 +127,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         
         if (!ghast.getEntityWorld().isClient()) {
             ensureDefaultName(ghast);
+            ensureElementAssigned(ghast);
         }
     }
     
@@ -269,6 +279,9 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             
             // 确保默认名称和名称标签同步
             ensureDefaultName(ghast);
+            
+            // 确保属性分配
+            ensureElementAssigned(ghast);
             
             // 处理自动战斗逻辑，保护附近玩家
             handleCombatBehavior(ghast);
@@ -640,6 +653,83 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         }
         ghast.setCustomName(Text.literal(name));
         ghast.setCustomNameVisible(true);
+    }
+    
+    /**
+     * 为快乐恶魂分配元素属性
+     */
+    @Unique
+    private void ensureElementAssigned(HappyGhastEntity ghast) {
+        if (this.elementAssigned || this.ghastData == null || ghast.getEntityWorld().isClient()) {
+            return;
+        }
+        
+        if (!this.ghastData.hasElementAssigned()) {
+            GhastElement selected = selectElementForGhast(ghast);
+            this.ghastData.setElement(selected);
+            Chestonghast.LOGGER.debug("快乐恶魂 {} 分配属性 {}", ghast.getUuidAsString(), selected.getId());
+        }
+        this.elementAssigned = true;
+    }
+    
+    @Unique
+    private GhastElement selectElementForGhast(HappyGhastEntity ghast) {
+        if (!(ghast.getEntityWorld() instanceof ServerWorld serverWorld)) {
+            return GhastElement.FIRE;
+        }
+        
+        RegistryEntry<net.minecraft.world.biome.Biome> biomeEntry = serverWorld.getBiome(BlockPos.ofFloored(ghast.getX(), ghast.getY(), ghast.getZ()));
+        EnumMap<GhastElement, Float> weights = new EnumMap<>(GhastElement.class);
+        for (GhastElement element : GhastElement.values()) {
+            weights.put(element, 1.0f);
+        }
+        
+        if (biomeEntry.isIn(BiomeTags.IS_FOREST) || biomeEntry.isIn(BiomeTags.IS_SAVANNA) || biomeEntry.isIn(BiomeTags.IS_JUNGLE)) {
+            weights.merge(GhastElement.FIRE, 4.0f, Float::sum);
+        }
+        if (biomeEntry.isIn(BiomeTags.IS_TAIGA)) {
+            weights.merge(GhastElement.ICE, 4.5f, Float::sum);
+        }
+        if (biomeEntry.isIn(BiomeTags.IS_MOUNTAIN) || biomeEntry.isIn(BiomeTags.IS_HILL)) {
+            weights.merge(GhastElement.WIND, 5.0f, Float::sum);
+        }
+        if (biomeEntry.isIn(BiomeTags.IS_BADLANDS)) {
+            weights.merge(GhastElement.SAND, 5.0f, Float::sum);
+        }
+        
+        float temperature = biomeEntry.value().getTemperature();
+        if (temperature <= 0.15f) {
+            weights.merge(GhastElement.ICE, 4.0f, Float::sum);
+        }
+        if (temperature >= 1.2f) {
+            weights.merge(GhastElement.SAND, 4.0f, Float::sum);
+            weights.merge(GhastElement.FIRE, 2.0f, Float::sum);
+        }
+        if (temperature >= 0.7f && temperature <= 1.0f) {
+            weights.merge(GhastElement.WIND, 1.5f, Float::sum);
+        }
+        
+        return pickElementByWeight(ghast, weights);
+    }
+    
+    @Unique
+    private GhastElement pickElementByWeight(HappyGhastEntity ghast, EnumMap<GhastElement, Float> weights) {
+        float total = 0.0f;
+        for (float value : weights.values()) {
+            total += value;
+        }
+        if (total <= 0.0f) {
+            return GhastElement.FIRE;
+        }
+        
+        float roll = ghast.getRandom().nextFloat() * total;
+        for (var entry : weights.entrySet()) {
+            roll -= entry.getValue();
+            if (roll <= 0.0f) {
+                return entry.getKey();
+            }
+        }
+        return GhastElement.FIRE;
     }
     
     /**

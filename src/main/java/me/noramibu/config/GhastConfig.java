@@ -3,6 +3,7 @@ package me.noramibu.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import me.noramibu.Chestonghast;
+import me.noramibu.element.GhastElement;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.File;
@@ -36,6 +37,9 @@ public class GhastConfig {
     
     // 用于生成默认快乐恶魂名字的全局计数器
     public int nextGhastNameIndex = 1;
+    
+    // 属性配置
+    public Map<String, ElementConfig> elementConfigs = new HashMap<>();
     
     /**
      * 等级配置类
@@ -76,6 +80,22 @@ public class GhastConfig {
     }
     
     /**
+     * 属性配置
+     */
+    public static class ElementConfig {
+        public String id;
+        public float sameBiomeDamageBonus = 0.15f;
+        public float sameBiomeEffectBonus = 0.15f;
+        public Map<Integer, ElementLevelConfig> levels = new HashMap<>();
+    }
+    
+    public static class ElementLevelConfig {
+        public float damageMultiplier = 1.0f;
+        public float cooldownMultiplier = 1.0f;
+        public float controlStrength = 1.0f;
+    }
+    
+    /**
      * 获取配置实例（单例模式）
      */
     public static GhastConfig getInstance() {
@@ -107,6 +127,7 @@ public class GhastConfig {
         Chestonghast.LOGGER.info("创建默认快乐恶魂配置文件：{}", CONFIG_FILE.getAbsolutePath());
         GhastConfig config = createDefault();
         config.save();
+        config.ensureElementConfigs();
         return config;
     }
     
@@ -132,6 +153,28 @@ public class GhastConfig {
         if (this.nextGhastNameIndex < 1) {
             this.nextGhastNameIndex = 1;
         }
+        
+        ensureElementConfigs();
+    }
+    
+    private void ensureElementConfigs() {
+        if (this.elementConfigs == null) {
+            this.elementConfigs = new HashMap<>();
+        }
+        
+        for (GhastElement element : GhastElement.values()) {
+            ElementConfig config = this.elementConfigs.computeIfAbsent(element.getId(), id -> createDefaultElementConfig(element));
+            if (config.levels == null) {
+                config.levels = new HashMap<>();
+            }
+            
+            Map<Integer, ElementLevelConfig> defaults = createDefaultElementLevels(element);
+            for (int level = 1; level <= me.noramibu.level.LevelConfig.MAX_LEVEL; level++) {
+                ElementLevelConfig defaultLevel = defaults.get(level);
+                if (defaultLevel == null) continue;
+                config.levels.computeIfAbsent(level, lvl -> copyElementLevelConfig(defaultLevel));
+            }
+        }
     }
     
     /**
@@ -142,6 +185,85 @@ public class GhastConfig {
         this.nextGhastNameIndex = Math.max(currentIndex + 1, 1);
         this.save();
         return currentIndex;
+    }
+    
+    private ElementConfig createDefaultElementConfig(GhastElement element) {
+        ElementConfig config = new ElementConfig();
+        config.id = element.getId();
+        switch (element) {
+            case FIRE -> {
+                config.sameBiomeDamageBonus = 0.25f;
+                config.sameBiomeEffectBonus = 0.10f;
+            }
+            case ICE -> {
+                config.sameBiomeDamageBonus = 0.15f;
+                config.sameBiomeEffectBonus = 0.30f;
+            }
+            case WIND -> {
+                config.sameBiomeDamageBonus = 0.10f;
+                config.sameBiomeEffectBonus = 0.25f;
+            }
+            case SAND -> {
+                config.sameBiomeDamageBonus = 0.12f;
+                config.sameBiomeEffectBonus = 0.20f;
+            }
+        }
+        config.levels = createDefaultElementLevels(element);
+        return config;
+    }
+    
+    private Map<Integer, ElementLevelConfig> createDefaultElementLevels(GhastElement element) {
+        Map<Integer, ElementLevelConfig> map = new HashMap<>();
+        
+        float[] damage;
+        float[] cooldown;
+        float[] control;
+        
+        switch (element) {
+            case FIRE -> {
+                damage = new float[]{1.00f, 1.10f, 1.25f, 1.40f, 1.60f, 1.80f};
+                cooldown = new float[]{1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.75f};
+                control = new float[]{1.00f, 1.05f, 1.10f, 1.15f, 1.20f, 1.25f};
+            }
+            case ICE -> {
+                damage = new float[]{0.85f, 0.95f, 1.05f, 1.15f, 1.30f, 1.45f};
+                cooldown = new float[]{1.05f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f};
+                control = new float[]{1.30f, 1.40f, 1.55f, 1.70f, 1.90f, 2.10f};
+            }
+            case WIND -> {
+                damage = new float[]{0.90f, 1.00f, 1.10f, 1.20f, 1.35f, 1.50f};
+                cooldown = new float[]{0.95f, 0.90f, 0.85f, 0.80f, 0.75f, 0.65f};
+                control = new float[]{1.40f, 1.55f, 1.70f, 1.90f, 2.10f, 2.35f};
+            }
+            case SAND -> {
+                damage = new float[]{0.88f, 0.98f, 1.12f, 1.26f, 1.42f, 1.60f};
+                cooldown = new float[]{1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.75f};
+                control = new float[]{1.20f, 1.35f, 1.55f, 1.75f, 1.95f, 2.20f};
+            }
+            default -> {
+                damage = new float[]{1.00f, 1.10f, 1.25f, 1.40f, 1.60f, 1.80f};
+                cooldown = new float[]{1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.75f};
+                control = new float[]{1.00f, 1.05f, 1.10f, 1.15f, 1.20f, 1.25f};
+            }
+        }
+        
+        for (int i = 0; i < damage.length; i++) {
+            ElementLevelConfig levelConfig = new ElementLevelConfig();
+            levelConfig.damageMultiplier = damage[i];
+            levelConfig.cooldownMultiplier = cooldown[i];
+            levelConfig.controlStrength = control[i];
+            map.put(i + 1, levelConfig);
+        }
+        
+        return map;
+    }
+    
+    private ElementLevelConfig copyElementLevelConfig(ElementLevelConfig source) {
+        ElementLevelConfig copy = new ElementLevelConfig();
+        copy.damageMultiplier = source.damageMultiplier;
+        copy.cooldownMultiplier = source.cooldownMultiplier;
+        copy.controlStrength = source.controlStrength;
+        return copy;
     }
     
     /**
@@ -187,6 +309,11 @@ public class GhastConfig {
         if (level < 1) level = 1;
         if (level > 6) level = 6;
         return levels.getOrDefault(level, levels.get(1));
+    }
+    
+    public ElementConfig getElementConfig(GhastElement element) {
+        ensureElementConfigs();
+        return elementConfigs.getOrDefault(element.getId(), createDefaultElementConfig(element));
     }
     
     /**
