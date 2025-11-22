@@ -84,6 +84,17 @@ public class HappyGhastConfigScreen extends Screen {
         }
 
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
+        int columnX = this.width / 2 - 160;
+        int currentY = 60;
+        for (LevelRow row : levelRows) {
+            row.drawLabel(context, this.textRenderer, columnX, currentY);
+            currentY += 26;
+        }
+        currentY += 8;
+        for (ElementRow row : elementRows.values()) {
+            row.drawLabel(context, this.textRenderer, columnX, currentY);
+            currentY += 26;
+        }
     }
 
     @Override
@@ -205,8 +216,6 @@ public class HappyGhastConfigScreen extends Screen {
         private TextFieldWidget powerField;
         private TextFieldWidget cooldownField;
         private TextFieldWidget damageField;
-        private int labelX;
-        private int labelY;
 
         LevelRow(SyncGhastConfigPayload.LevelEntry snapshot) {
             this.snapshot = snapshot;
@@ -222,8 +231,6 @@ public class HappyGhastConfigScreen extends Screen {
         }
 
         void applyLayout(int x, int y) {
-            this.labelX = x;
-            this.labelY = y;
             if (powerField != null) {
                 powerField.setPosition(x + 60, y);
             }
@@ -235,8 +242,8 @@ public class HappyGhastConfigScreen extends Screen {
             }
         }
 
-        void drawLabel(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer) {
-            context.drawText(textRenderer, Text.literal("等级 " + snapshot.level()), labelX, labelY + 5, 0xFFFFFF, false);
+        void drawLabel(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer, int x, int y) {
+            context.drawText(textRenderer, Text.literal("等级 " + snapshot.level()), x, y + 5, 0xFFFFFF, false);
         }
 
         SyncGhastConfigPayload.LevelEntry toSnapshot() {
@@ -251,8 +258,6 @@ public class HappyGhastConfigScreen extends Screen {
         private final SyncGhastConfigPayload.ElementEntry snapshot;
         private TextFieldWidget damageBonusField;
         private TextFieldWidget effectBonusField;
-        private int labelX;
-        private int labelY;
 
         ElementRow(SyncGhastConfigPayload.ElementEntry snapshot) {
             this.snapshot = snapshot;
@@ -266,8 +271,6 @@ public class HappyGhastConfigScreen extends Screen {
         }
 
         void applyLayout(int x, int y) {
-            this.labelX = x;
-            this.labelY = y;
             if (damageBonusField != null) {
                 damageBonusField.setPosition(x + 80, y);
             }
@@ -276,8 +279,8 @@ public class HappyGhastConfigScreen extends Screen {
             }
         }
 
-        void drawLabel(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer) {
-            context.drawText(textRenderer, Text.literal("属性 " + snapshot.id().toUpperCase(Locale.ROOT)), labelX, labelY + 5, 0xFFFFFF, false);
+        void drawLabel(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer, int x, int y) {
+            context.drawText(textRenderer, Text.literal("属性 " + snapshot.id().toUpperCase(Locale.ROOT)), x, y + 5, 0xFFFFFF, false);
         }
 
         SyncGhastConfigPayload.ElementEntry toSnapshot() {
