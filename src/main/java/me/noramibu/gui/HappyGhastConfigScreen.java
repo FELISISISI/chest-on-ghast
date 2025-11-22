@@ -70,29 +70,27 @@ public class HappyGhastConfigScreen extends Screen {
 
     @Override
     public void render(DrawContext context, int mouseX, int mouseY, float delta) {
+        // 每帧先根据最新的窗口尺寸调整输入框位置，确保布局稳定
+        applyRowLayout();
+
         super.render(context, mouseX, mouseY, delta);
         if (!hasPlayConnection()) {
-            context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
-            context.drawCenteredTextWithShadow(this.textRenderer, OFFLINE_MESSAGE, this.width / 2, this.height / 2, 0xFF6666);
+            drawCenteredMessage(context, this.title, OFFLINE_MESSAGE, 0xFF6666);
             return;
         }
-        context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
 
         if (!dataLoaded) {
-            context.drawCenteredTextWithShadow(this.textRenderer, Text.literal("正在请求服务器配置..."), this.width / 2, this.height / 2, 0xAAAAAA);
+            drawCenteredMessage(context, this.title, Text.literal("正在请求服务器配置..."), 0xAAAAAA);
             return;
         }
 
-        int startY = 60;
-        for (LevelRow row : levelRows) {
-            row.render(context, this.textRenderer, this.width / 2 - 160, startY);
-            startY += 26;
-        }
+        context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
 
-        startY += 8;
+        for (LevelRow row : levelRows) {
+            row.drawLabel(context, this.textRenderer);
+        }
         for (ElementRow row : elementRows.values()) {
-            row.render(context, this.textRenderer, this.width / 2 - 160, startY);
-            startY += 26;
+            row.drawLabel(context, this.textRenderer);
         }
     }
 
@@ -184,11 +182,38 @@ public class HappyGhastConfigScreen extends Screen {
         return this.client != null && this.client.getNetworkHandler() != null;
     }
 
+    /**
+     * 负责在每帧渲染前更新所有输入框的位置，避免窗口尺寸变化导致控件漂移.
+     */
+    private void applyRowLayout() {
+        if (!dataLoaded) {
+            return;
+        }
+        int columnX = this.width / 2 - 160;
+        int currentY = 60;
+        for (LevelRow row : levelRows) {
+            row.applyLayout(columnX, currentY);
+            currentY += 26;
+        }
+        currentY += 8;
+        for (ElementRow row : elementRows.values()) {
+            row.applyLayout(columnX, currentY);
+            currentY += 26;
+        }
+    }
+
+    private void drawCenteredMessage(DrawContext context, Text titleText, Text body, int bodyColor) {
+        context.drawCenteredTextWithShadow(this.textRenderer, titleText, this.width / 2, 12, 0xFFFFFF);
+        context.drawCenteredTextWithShadow(this.textRenderer, body, this.width / 2, this.height / 2, bodyColor);
+    }
+
     private static class LevelRow {
         private final SyncGhastConfigPayload.LevelEntry snapshot;
         private TextFieldWidget powerField;
         private TextFieldWidget cooldownField;
         private TextFieldWidget damageField;
+        private int labelX;
+        private int labelY;
 
         LevelRow(SyncGhastConfigPayload.LevelEntry snapshot) {
             this.snapshot = snapshot;
@@ -203,13 +228,23 @@ public class HappyGhastConfigScreen extends Screen {
             damageField.setText(String.format(Locale.ROOT, "%.1f", snapshot.fireballDamage()));
         }
 
-        void render(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer, int x, int y) {
-            Text label = Text.literal("等级 " + snapshot.level());
-            context.drawText(textRenderer, label, x, y + 5, 0xFFFFFF, false);
+        void applyLayout(int x, int y) {
+            this.labelX = x;
+            this.labelY = y;
+            if (powerField != null) {
+                powerField.setPosition(x + 60, y);
+            }
+            if (cooldownField != null) {
+                cooldownField.setPosition(x + 110, y);
+            }
+            if (damageField != null) {
+                damageField.setPosition(x + 180, y);
+            }
+        }
 
-            powerField.setPosition(x + 60, y);
-            cooldownField.setPosition(x + 60 + 50, y);
-            damageField.setPosition(x + 60 + 120, y);
+        void drawLabel(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer) {
+            Text label = Text.literal("等级 " + snapshot.level());
+            context.drawText(textRenderer, label, labelX, labelY + 5, 0xFFFFFF, false);
         }
 
         SyncGhastConfigPayload.LevelEntry toSnapshot() {
@@ -224,6 +259,8 @@ public class HappyGhastConfigScreen extends Screen {
         private final SyncGhastConfigPayload.ElementEntry snapshot;
         private TextFieldWidget damageBonusField;
         private TextFieldWidget effectBonusField;
+        private int labelX;
+        private int labelY;
 
         ElementRow(SyncGhastConfigPayload.ElementEntry snapshot) {
             this.snapshot = snapshot;
@@ -236,12 +273,20 @@ public class HappyGhastConfigScreen extends Screen {
             effectBonusField.setText(String.format(Locale.ROOT, "%.2f", snapshot.sameBiomeEffectBonus()));
         }
 
-        void render(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer, int x, int y) {
-            Text label = Text.literal("属性 " + snapshot.id().toUpperCase(Locale.ROOT));
-            context.drawText(textRenderer, label, x, y + 5, 0xFFFFFF, false);
+        void applyLayout(int x, int y) {
+            this.labelX = x;
+            this.labelY = y;
+            if (damageBonusField != null) {
+                damageBonusField.setPosition(x + 80, y);
+            }
+            if (effectBonusField != null) {
+                effectBonusField.setPosition(x + 150, y);
+            }
+        }
 
-            damageBonusField.setPosition(x + 80, y);
-            effectBonusField.setPosition(x + 80 + 70, y);
+        void drawLabel(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer) {
+            Text label = Text.literal("属性 " + snapshot.id().toUpperCase(Locale.ROOT));
+            context.drawText(textRenderer, label, labelX, labelY + 5, 0xFFFFFF, false);
         }
 
         SyncGhastConfigPayload.ElementEntry toSnapshot() {
