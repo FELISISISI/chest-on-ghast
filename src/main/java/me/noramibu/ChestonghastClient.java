@@ -36,10 +36,6 @@ public class ChestonghastClient implements ClientModInitializer {
      */
     @Override
     public void onInitializeClient() {
-        PayloadTypeRegistry.playC2S().register(RequestGhastConfigPayload.ID, RequestGhastConfigPayload.CODEC);
-        PayloadTypeRegistry.playC2S().register(UpdateGhastConfigPayload.ID, UpdateGhastConfigPayload.CODEC);
-        PayloadTypeRegistry.playS2C().register(SyncGhastConfigPayload.ID, SyncGhastConfigPayload.CODEC);
-        
         // 注册H键绑定
         // 创建一个简单的KeyBinding对象，使用MISC类别
         greetGhastKey = KeyBindingHelper.registerKeyBinding(new KeyBinding(
