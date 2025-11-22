@@ -25,7 +25,12 @@ public record SyncGhastDataPayload(
     boolean isCreative,    // 玩家是否为创造模式
     List<String> favoriteFoods,  // 最喜欢的食物（创造模式下显示）
     String customName,     // 自定义名字
-    String elementId       // 属性ID
+    String elementId,      // 属性ID
+    float elementDamage,   // 元素实际伤害
+    int elementCooldownTicks, // 元素实际冷却
+    float elementControlStrength, // 控制强度
+    int elementExplosionPower,    // 爆炸威力或推力
+    boolean elementHomeBoost      // 是否享受同群系加成
 ) implements CustomPayload {
     
     // 网络包标识符
@@ -53,9 +58,14 @@ public record SyncGhastDataPayload(
                     buf.writeString(food);
                 }
                 
-                // 写入自定义名字与属性
-                buf.writeString(value.customName != null ? value.customName : "");
-                buf.writeString(value.elementId != null ? value.elementId : GhastElement.FIRE.getId());
+                    // 写入自定义名字与属性
+                    buf.writeString(value.customName != null ? value.customName : "");
+                    buf.writeString(value.elementId != null ? value.elementId : GhastElement.FIRE.getId());
+                    buf.writeFloat(value.elementDamage);
+                    buf.writeInt(value.elementCooldownTicks);
+                    buf.writeFloat(value.elementControlStrength);
+                    buf.writeInt(value.elementExplosionPower);
+                    buf.writeBoolean(value.elementHomeBoost);
                 },
             buf -> {
                 // 解码器：按顺序读取所有数据
@@ -79,11 +89,17 @@ public record SyncGhastDataPayload(
                 // 读取自定义名字
                     String customName = buf.readString();
                     String elementId = buf.readString();
+                    float elementDamage = buf.readFloat();
+                    int elementCooldown = buf.readInt();
+                    float elementControl = buf.readFloat();
+                    int elementExplosion = buf.readInt();
+                    boolean homeBoost = buf.readBoolean();
                 
                 return new SyncGhastDataPayload(
                     entityId, level, experience, hunger,
                         maxHealth, currentHealth, maxHunger, expToNext,
-                        isCreative, favoriteFoods, customName, elementId
+                        isCreative, favoriteFoods, customName, elementId,
+                        elementDamage, elementCooldown, elementControl, elementExplosion, homeBoost
                 );
             }
         );

@@ -2,6 +2,8 @@ package me.noramibu.mixin;
 
 import me.noramibu.Chestonghast;
 import me.noramibu.accessor.HappyGhastDataAccessor;
+import me.noramibu.combat.GhastCombatHelper;
+import me.noramibu.combat.GhastCombatStats;
 import me.noramibu.data.HappyGhastData;
 import me.noramibu.config.GhastConfig;
 import me.noramibu.element.GhastElement;
@@ -83,9 +85,6 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     // 标记是否已为该实体分配属性
     @Unique
     private boolean elementAssigned = false;
-    
-    @Unique
-    private record ElementCombatStats(GhastElement element, float damage, int cooldownTicks, int explosionPower, float controlStrength) {}
     
     // 玩家感知范围 - 识别需要保护的玩家
     @Unique
@@ -316,6 +315,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 if (player instanceof ServerPlayerEntity serverPlayer) {
                     // 读取快乐恶魂的数据
                     HappyGhastData data = this.getGhastData();
+                    GhastCombatStats combatStats = GhastCombatHelper.compute(ghast, data);
                     
                     // 直接发送数据到客户端并打开GUI
                     // 使用SyncGhastDataPayload（已正确注册为S2C）
@@ -331,7 +331,12 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                         serverPlayer.isCreative(),  // 玩家创造模式状态
                         data.getFavoriteFoods(),     // 最喜欢的食物列表
                         data.getCustomName() != null ? data.getCustomName() : "",  // 自定义名字
-                        data.getElement().getId()
+                        data.getElement().getId(),
+                        combatStats.damage(),
+                        combatStats.cooldownTicks(),
+                        combatStats.controlStrength(),
+                        combatStats.explosionPower(),
+                        combatStats.homeBoost()
                     );
                     
                     ServerPlayNetworking.send(serverPlayer, syncPayload);
@@ -516,7 +521,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         ghast.setAttacking(true);
         ghast.getLookControl().lookAt(hostileTarget, 30.0f, ghast.getMaxLookPitchChange());
         
-        ElementCombatStats combatStats = buildElementCombatStats(ghast);
+        GhastCombatStats combatStats = GhastCombatHelper.compute(ghast, this.ghastData);
         if (this.fireballCooldownTicks <= 0) {
             shootElementalProjectile(ghast, hostileTarget, combatStats);
             this.fireballCooldownTicks = combatStats.cooldownTicks();
@@ -567,7 +572,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
      * 发射对应属性的投射物
      */
     @Unique
-    private void shootElementalProjectile(HappyGhastEntity ghast, MobEntity target, ElementCombatStats stats) {
+    private void shootElementalProjectile(HappyGhastEntity ghast, MobEntity target, GhastCombatStats stats) {
         double deltaX = target.getX() - ghast.getX();
         double deltaY = target.getBodyY(0.5) - ghast.getBodyY(0.5);
         double deltaZ = target.getZ() - ghast.getZ();
@@ -602,49 +607,6 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             case WIND -> ghast.playSound(SoundEvents.ENTITY_BREEZE_CHARGE, 1.0f, 1.0f + ghast.getRandom().nextFloat() * 0.2f);
             case SAND -> ghast.playSound(SoundEvents.BLOCK_SAND_BREAK, 0.8f, 0.8f);
         }
-    }
-    
-    @Unique
-    private ElementCombatStats buildElementCombatStats(HappyGhastEntity ghast) {
-        if (this.ghastData == null) {
-            return new ElementCombatStats(GhastElement.FIRE, 6.0f, 20, 1, 1.0f);
-        }
-        GhastConfig config = GhastConfig.getInstance();
-        int level = Math.max(1, Math.min(me.noramibu.level.LevelConfig.MAX_LEVEL, this.ghastData.getLevel()));
-        GhastElement element = this.ghastData.getElement();
-        LevelConfig.LevelData levelData = LevelConfig.getLevelData(level);
-        GhastConfig.ElementLevelConfig elementLevel = config.getElementLevelConfig(element, level);
-        GhastConfig.ElementConfig elementConfig = config.getElementConfig(element);
-        
-        float damage = Math.max(1.0f, levelData.getFireballDamage()) * elementLevel.damageMultiplier;
-        int cooldown = Math.max(5, Math.round(levelData.getAttackCooldownTicks() * elementLevel.cooldownMultiplier));
-        int explosionPower = Math.max(1, Math.round(levelData.getFireballPower() * elementLevel.damageMultiplier));
-        float control = elementLevel.controlStrength;
-        
-        if (isElementHomeBiome(ghast, element)) {
-            damage *= 1.0f + elementConfig.sameBiomeDamageBonus;
-            control *= 1.0f + elementConfig.sameBiomeEffectBonus;
-            cooldown = Math.max(4, Math.round(cooldown * (1.0f - elementConfig.sameBiomeEffectBonus * 0.3f)));
-        }
-        
-        return new ElementCombatStats(element, damage, cooldown, explosionPower, control);
-    }
-    
-    @Unique
-    private boolean isElementHomeBiome(HappyGhastEntity ghast, GhastElement element) {
-        if (!(ghast.getEntityWorld() instanceof ServerWorld serverWorld)) {
-            return false;
-        }
-        
-        RegistryEntry<net.minecraft.world.biome.Biome> biomeEntry = serverWorld.getBiome(BlockPos.ofFloored(ghast.getX(), ghast.getY(), ghast.getZ()));
-        float temperature = biomeEntry.value().getTemperature();
-        
-        return switch (element) {
-            case FIRE -> biomeEntry.isIn(BiomeTags.IS_FOREST) || biomeEntry.isIn(BiomeTags.IS_JUNGLE) || temperature >= 1.0f;
-            case ICE -> biomeEntry.isIn(BiomeTags.IS_TAIGA) || temperature <= 0.2f;
-            case WIND -> biomeEntry.isIn(BiomeTags.IS_MOUNTAIN) || biomeEntry.isIn(BiomeTags.IS_HILL);
-            case SAND -> biomeEntry.isIn(BiomeTags.IS_BADLANDS) || temperature >= 1.2f;
-        };
     }
     
     /**

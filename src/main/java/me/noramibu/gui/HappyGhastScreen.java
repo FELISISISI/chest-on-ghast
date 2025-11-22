@@ -11,6 +11,7 @@ import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
 import org.lwjgl.glfw.GLFW;
 import java.util.List;
+import java.util.Locale;
 
 public class HappyGhastScreen extends Screen {
     private final int entityId;
@@ -28,6 +29,11 @@ public class HappyGhastScreen extends Screen {
     private TextFieldWidget nameField;  // 名字输入框
     private String customName;  // 自定义名字
     private String elementId;
+    private float elementDamage;
+    private int elementCooldownTicks;
+    private float elementControlStrength;
+    private int elementExplosionPower;
+    private boolean elementHomeBonus;
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
@@ -36,7 +42,37 @@ public class HappyGhastScreen extends Screen {
         this.favoriteFoods = payload.favoriteFoods();
         this.customName = payload.customName() != null ? payload.customName() : "";
         this.elementId = payload.elementId();
+        this.elementDamage = payload.elementDamage();
+        this.elementCooldownTicks = payload.elementCooldownTicks();
+        this.elementControlStrength = payload.elementControlStrength();
+        this.elementExplosionPower = payload.elementExplosionPower();
+        this.elementHomeBonus = payload.elementHomeBoost();
         updateFromPayload(payload);
+    }
+
+    private void renderElementSection(DrawContext context, int centerX, int startY) {
+        Text elementName = getElementDisplayName();
+        String statsLine = String.format(Locale.ROOT, "伤害 %.1f | 冷却 %.2fs | 控制 %.2f", this.elementDamage, this.elementCooldownTicks / 20.0f, this.elementControlStrength);
+        String miscLine = String.format(Locale.ROOT, "爆炸/推力 %d%s", this.elementExplosionPower, this.elementHomeBonus ? " · 地形加成" : "");
+        
+        int elementWidth = this.textRenderer.getWidth(elementName);
+        context.drawText(this.textRenderer, elementName, centerX - elementWidth / 2, startY, 0xFFFFAA00, false);
+        
+        int statsWidth = this.textRenderer.getWidth(statsLine);
+        context.drawText(this.textRenderer, statsLine, centerX - statsWidth / 2, startY + 12, 0xFFFFFFFF, false);
+        
+        int miscWidth = this.textRenderer.getWidth(miscLine);
+        context.drawText(this.textRenderer, miscLine, centerX - miscWidth / 2, startY + 24, this.elementHomeBonus ? 0xFF00FF7F : 0xFFBBBBBB, false);
+    }
+    
+    private Text getElementDisplayName() {
+        String id = this.elementId == null ? "fire" : this.elementId.toLowerCase(Locale.ROOT);
+        return switch (id) {
+            case "ice" -> Text.literal("属性：冰");
+            case "wind" -> Text.literal("属性：风");
+            case "sand" -> Text.literal("属性：炽沙");
+            default -> Text.literal("属性：火");
+        };
     }
     
     /**
@@ -71,6 +107,12 @@ public class HappyGhastScreen extends Screen {
         });
         
         this.addDrawableChild(this.nameField);
+        
+        var configButton = net.minecraft.client.gui.widget.ButtonWidget.builder(
+            Text.literal("调整配置"),
+            btn -> openConfigScreen()
+        ).dimensions(centerX - fieldWidth / 2, topY + 24, fieldWidth, 20).build();
+        this.addDrawableChild(configButton);
     }
     
     /**
@@ -94,6 +136,11 @@ public class HappyGhastScreen extends Screen {
             updateCustomName(newCustomName);
         }
         this.elementId = payload.elementId();
+        this.elementDamage = payload.elementDamage();
+        this.elementCooldownTicks = payload.elementCooldownTicks();
+        this.elementControlStrength = payload.elementControlStrength();
+        this.elementExplosionPower = payload.elementExplosionPower();
+        this.elementHomeBonus = payload.elementHomeBoost();
     }
     
     /**
@@ -193,8 +240,11 @@ public class HappyGhastScreen extends Screen {
                 0xFFFFD700);
         }
         
+        int elementSectionY = dataY + 70;
+        renderElementSection(context, centerX, elementSectionY);
+        
         // 底部提示（居中）
-        int hintY = dataY + 70;
+        int hintY = elementSectionY + 60;
         Text closeHint = Text.translatable("gui.chest-on-ghast.close_hint");
         int closeHintWidth = this.textRenderer.getWidth(closeHint);
         context.drawText(this.textRenderer, closeHint, centerX - closeHintWidth / 2, hintY, 0xFF888888, false);
@@ -261,6 +311,12 @@ public class HappyGhastScreen extends Screen {
     @Override
     public boolean shouldPause() {
         return false;
+    }
+    
+    private void openConfigScreen() {
+        if (this.client != null) {
+            this.client.setScreen(new HappyGhastConfigScreen(this));
+        }
     }
     
     @Override
