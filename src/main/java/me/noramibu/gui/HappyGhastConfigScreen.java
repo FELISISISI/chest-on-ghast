@@ -8,8 +8,11 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.MinecraftClient;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
+import net.minecraft.client.gui.screen.narration.NarrationMessageBuilder;
+import net.minecraft.client.gui.screen.narration.NarrationPart;
 import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.gui.widget.CyclingButtonWidget;
+import net.minecraft.client.gui.widget.ClickableWidget;
 import net.minecraft.client.gui.widget.TextFieldWidget;
 import net.minecraft.text.Text;
 
@@ -29,6 +32,7 @@ public class HappyGhastConfigScreen extends Screen {
     private final List<LevelRow> levelRows = new ArrayList<>();
     private final Map<String, ElementRow> elementRows = new LinkedHashMap<>();
     private final List<TextFieldWidget> textFields = new ArrayList<>();
+    private final List<LabelWidget> labelWidgets = new ArrayList<>();
 
     private CyclingButtonWidget<Boolean> debugToggle;
     private ButtonWidget saveButton;
@@ -84,17 +88,6 @@ public class HappyGhastConfigScreen extends Screen {
         }
 
         context.drawCenteredTextWithShadow(this.textRenderer, this.title, this.width / 2, 12, 0xFFFFFF);
-        int columnX = this.width / 2 - 160;
-        int currentY = 60;
-        for (LevelRow row : levelRows) {
-            row.drawLabel(context, this.textRenderer, columnX, currentY);
-            currentY += 26;
-        }
-        currentY += 8;
-        for (ElementRow row : elementRows.values()) {
-            row.drawLabel(context, this.textRenderer, columnX, currentY);
-            currentY += 26;
-        }
     }
 
     @Override
@@ -135,7 +128,9 @@ public class HappyGhastConfigScreen extends Screen {
 
     private void rebuildFields() {
         textFields.forEach(this::remove);
+        labelWidgets.forEach(this::remove);
         textFields.clear();
+        labelWidgets.clear();
         if (!dataLoaded || this.client == null || this.textRenderer == null) {
             return;
         }
@@ -145,6 +140,9 @@ public class HappyGhastConfigScreen extends Screen {
             this.addDrawableChild(row.powerField);
             this.addDrawableChild(row.cooldownField);
             this.addDrawableChild(row.damageField);
+            LabelWidget label = row.ensureLabelWidget(this.textRenderer);
+            this.addDrawableChild(label);
+            labelWidgets.add(label);
             textFields.add(row.powerField);
             textFields.add(row.cooldownField);
             textFields.add(row.damageField);
@@ -154,6 +152,9 @@ public class HappyGhastConfigScreen extends Screen {
             row.initFields(this.client, this.textRenderer);
             this.addDrawableChild(row.damageBonusField);
             this.addDrawableChild(row.effectBonusField);
+            LabelWidget label = row.ensureLabelWidget(this.textRenderer);
+            this.addDrawableChild(label);
+            labelWidgets.add(label);
             textFields.add(row.damageBonusField);
             textFields.add(row.effectBonusField);
         }
@@ -197,11 +198,13 @@ public class HappyGhastConfigScreen extends Screen {
         int currentY = 60;
         for (LevelRow row : levelRows) {
             row.applyLayout(columnX, currentY);
+            row.updateLabelPosition(columnX, currentY + 5);
             currentY += 26;
         }
         currentY += 8;
         for (ElementRow row : elementRows.values()) {
             row.applyLayout(columnX, currentY);
+            row.updateLabelPosition(columnX, currentY + 5);
             currentY += 26;
         }
     }
@@ -216,6 +219,7 @@ public class HappyGhastConfigScreen extends Screen {
         private TextFieldWidget powerField;
         private TextFieldWidget cooldownField;
         private TextFieldWidget damageField;
+        private LabelWidget labelWidget;
 
         LevelRow(SyncGhastConfigPayload.LevelEntry snapshot) {
             this.snapshot = snapshot;
@@ -242,8 +246,17 @@ public class HappyGhastConfigScreen extends Screen {
             }
         }
 
-        void drawLabel(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer, int x, int y) {
-            context.drawText(textRenderer, Text.literal("等级 " + snapshot.level()), x, y + 5, 0xFFFFFF, false);
+        LabelWidget ensureLabelWidget(net.minecraft.client.font.TextRenderer textRenderer) {
+            if (labelWidget == null) {
+                labelWidget = new LabelWidget(textRenderer, Text.literal("等级 " + snapshot.level()));
+            }
+            return labelWidget;
+        }
+
+        void updateLabelPosition(int x, int y) {
+            if (labelWidget != null) {
+                labelWidget.setPosition(x, y);
+            }
         }
 
         SyncGhastConfigPayload.LevelEntry toSnapshot() {
@@ -258,6 +271,7 @@ public class HappyGhastConfigScreen extends Screen {
         private final SyncGhastConfigPayload.ElementEntry snapshot;
         private TextFieldWidget damageBonusField;
         private TextFieldWidget effectBonusField;
+        private LabelWidget labelWidget;
 
         ElementRow(SyncGhastConfigPayload.ElementEntry snapshot) {
             this.snapshot = snapshot;
@@ -279,8 +293,17 @@ public class HappyGhastConfigScreen extends Screen {
             }
         }
 
-        void drawLabel(DrawContext context, net.minecraft.client.font.TextRenderer textRenderer, int x, int y) {
-            context.drawText(textRenderer, Text.literal("属性 " + snapshot.id().toUpperCase(Locale.ROOT)), x, y + 5, 0xFFFFFF, false);
+        LabelWidget ensureLabelWidget(net.minecraft.client.font.TextRenderer textRenderer) {
+            if (labelWidget == null) {
+                labelWidget = new LabelWidget(textRenderer, Text.literal("属性 " + snapshot.id().toUpperCase(Locale.ROOT)));
+            }
+            return labelWidget;
+        }
+
+        void updateLabelPosition(int x, int y) {
+            if (labelWidget != null) {
+                labelWidget.setPosition(x, y);
+            }
         }
 
         SyncGhastConfigPayload.ElementEntry toSnapshot() {
@@ -312,6 +335,27 @@ public class HappyGhastConfigScreen extends Screen {
         MinecraftClient client = MinecraftClient.getInstance();
         if (client.currentScreen instanceof HappyGhastConfigScreen screen) {
             screen.applyServerConfig(payload);
+        }
+    }
+
+    private static final class LabelWidget extends ClickableWidget {
+        private final net.minecraft.client.font.TextRenderer textRenderer;
+        private final int color;
+
+        LabelWidget(net.minecraft.client.font.TextRenderer textRenderer, Text text) {
+            super(0, 0, textRenderer.getWidth(text) + 4, 10, text);
+            this.textRenderer = textRenderer;
+            this.color = 0xFFFFFF;
+        }
+
+        @Override
+        protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
+            context.drawTextWithShadow(this.textRenderer, this.getMessage(), this.getX(), this.getY(), this.color);
+        }
+
+        @Override
+        protected void appendClickableNarrations(NarrationMessageBuilder builder) {
+            builder.put(NarrationPart.TITLE, this.getMessage());
         }
     }
 }
