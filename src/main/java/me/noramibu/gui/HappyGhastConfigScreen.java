@@ -255,7 +255,7 @@ public class HappyGhastConfigScreen extends Screen {
 
         void updateLabelPosition(int x, int y) {
             if (labelWidget != null) {
-                labelWidget.setPosition(x, y);
+                labelWidget.moveTo(x, y);
             }
         }
 
@@ -302,7 +302,7 @@ public class HappyGhastConfigScreen extends Screen {
 
         void updateLabelPosition(int x, int y) {
             if (labelWidget != null) {
-                labelWidget.setPosition(x, y);
+                labelWidget.moveTo(x, y);
             }
         }
 
@@ -347,6 +347,11 @@ public class HappyGhastConfigScreen extends Screen {
             this.textRenderer = textRenderer;
             this.color = 0xFFFFFF;
         }
+
+		void moveTo(int x, int y) {
+			this.setX(x);
+			this.setY(y);
+		}
 
         @Override
         protected void renderWidget(DrawContext context, int mouseX, int mouseY, float delta) {
