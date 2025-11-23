@@ -7,8 +7,11 @@ import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
 import net.minecraft.client.gui.DrawContext;
 import net.minecraft.client.gui.screen.Screen;
 import net.minecraft.client.gui.widget.TextFieldWidget;
+import net.minecraft.client.input.KeyInput;
 import net.minecraft.text.Text;
+import org.lwjgl.glfw.GLFW;
 import java.util.List;
+import java.util.Locale;
 
 public class HappyGhastScreen extends Screen {
     private final int entityId;
@@ -25,14 +28,51 @@ public class HappyGhastScreen extends Screen {
     private int tickCounter = 0;  // 用于控制请求频率
     private TextFieldWidget nameField;  // 名字输入框
     private String customName;  // 自定义名字
+    private String elementId;
+    private float elementDamage;
+    private int elementCooldownTicks;
+    private float elementControlStrength;
+    private int elementExplosionPower;
+    private boolean elementHomeBonus;
     
     public HappyGhastScreen(SyncGhastDataPayload payload) {
         super(Text.translatable("gui.chest-on-ghast.happy_ghast"));
         this.entityId = payload.entityId();
-        updateFromPayload(payload);
         this.isCreative = payload.isCreative();
         this.favoriteFoods = payload.favoriteFoods();
-        this.customName = "";  // 初始为空，后续会从服务器同步
+        this.customName = payload.customName() != null ? payload.customName() : "";
+        this.elementId = payload.elementId();
+        this.elementDamage = payload.elementDamage();
+        this.elementCooldownTicks = payload.elementCooldownTicks();
+        this.elementControlStrength = payload.elementControlStrength();
+        this.elementExplosionPower = payload.elementExplosionPower();
+        this.elementHomeBonus = payload.elementHomeBoost();
+        updateFromPayload(payload);
+    }
+
+    private void renderElementSection(DrawContext context, int centerX, int startY) {
+        Text elementName = getElementDisplayName();
+        String statsLine = String.format(Locale.ROOT, "伤害 %.1f | 冷却 %.2fs | 控制 %.2f", this.elementDamage, this.elementCooldownTicks / 20.0f, this.elementControlStrength);
+        String miscLine = String.format(Locale.ROOT, "爆炸/推力 %d%s", this.elementExplosionPower, this.elementHomeBonus ? " · 地形加成" : "");
+        
+        int elementWidth = this.textRenderer.getWidth(elementName);
+        context.drawText(this.textRenderer, elementName, centerX - elementWidth / 2, startY, 0xFFFFAA00, false);
+        
+        int statsWidth = this.textRenderer.getWidth(statsLine);
+        context.drawText(this.textRenderer, statsLine, centerX - statsWidth / 2, startY + 12, 0xFFFFFFFF, false);
+        
+        int miscWidth = this.textRenderer.getWidth(miscLine);
+        context.drawText(this.textRenderer, miscLine, centerX - miscWidth / 2, startY + 24, this.elementHomeBonus ? 0xFF00FF7F : 0xFFBBBBBB, false);
+    }
+    
+    private Text getElementDisplayName() {
+        String id = this.elementId == null ? "fire" : this.elementId.toLowerCase(Locale.ROOT);
+        return switch (id) {
+            case "ice" -> Text.literal("属性：冰");
+            case "wind" -> Text.literal("属性：风");
+            case "sand" -> Text.literal("属性：炽沙");
+            default -> Text.literal("属性：火");
+        };
     }
     
     /**
@@ -58,9 +98,8 @@ public class HappyGhastScreen extends Screen {
         
         // 设置输入框属性
         this.nameField.setMaxLength(32);
-        this.nameField.setText(this.customName.isEmpty() ? 
-            Text.translatable("gui.chest-on-ghast.happy_ghast").getString() : this.customName);
         this.nameField.setPlaceholder(Text.translatable("gui.chest-on-ghast.name_placeholder"));
+        this.nameField.setText(this.customName);
         
         // 当输入框内容改变时，存储临时名字
         this.nameField.setChangedListener(text -> {
@@ -68,6 +107,12 @@ public class HappyGhastScreen extends Screen {
         });
         
         this.addDrawableChild(this.nameField);
+        
+        var configButton = net.minecraft.client.gui.widget.ButtonWidget.builder(
+            Text.literal("调整配置"),
+            btn -> openConfigScreen()
+        ).dimensions(centerX - fieldWidth / 2, topY + 24, fieldWidth, 20).build();
+        this.addDrawableChild(configButton);
     }
     
     /**
@@ -84,19 +129,27 @@ public class HappyGhastScreen extends Screen {
         
         // 更新自定义名字
         String newCustomName = payload.customName();
-        if (newCustomName != null && !newCustomName.equals(this.customName)) {
+        if (newCustomName == null) {
+            newCustomName = "";
+        }
+        if (!newCustomName.equals(this.customName)) {
             updateCustomName(newCustomName);
         }
+        this.elementId = payload.elementId();
+        this.elementDamage = payload.elementDamage();
+        this.elementCooldownTicks = payload.elementCooldownTicks();
+        this.elementControlStrength = payload.elementControlStrength();
+        this.elementExplosionPower = payload.elementExplosionPower();
+        this.elementHomeBonus = payload.elementHomeBoost();
     }
     
     /**
      * 更新自定义名字
      */
     public void updateCustomName(String name) {
-        this.customName = name;
+        this.customName = name == null ? "" : name;
         if (this.nameField != null) {
-            this.nameField.setText(name.isEmpty() ? 
-                Text.translatable("gui.chest-on-ghast.happy_ghast").getString() : name);
+            this.nameField.setText(this.customName);
         }
     }
     
@@ -115,13 +168,9 @@ public class HappyGhastScreen extends Screen {
         // 检测焦点状态变化，失去焦点时发送改名请求
         if (this.nameField != null) {
             boolean currentlyFocused = this.nameField.isFocused();
-            if (wasFocused && !currentlyFocused) {
-                // 刚刚失去焦点
-                String newName = this.nameField.getText();
-                if (newName != null && !newName.isEmpty() && !newName.equals(this.customName)) {
-                    ClientPlayNetworking.send(new RenameGhastPayload(this.entityId, newName));
-                    this.customName = newName;
-                }
+                if (wasFocused && !currentlyFocused) {
+                    // 刚刚失去焦点
+                    trySendRename();
             }
             wasFocused = currentlyFocused;
         }
@@ -191,8 +240,11 @@ public class HappyGhastScreen extends Screen {
                 0xFFFFD700);
         }
         
+        int elementSectionY = dataY + 70;
+        renderElementSection(context, centerX, elementSectionY);
+        
         // 底部提示（居中）
-        int hintY = dataY + 70;
+        int hintY = elementSectionY + 60;
         Text closeHint = Text.translatable("gui.chest-on-ghast.close_hint");
         int closeHintWidth = this.textRenderer.getWidth(closeHint);
         context.drawText(this.textRenderer, closeHint, centerX - closeHintWidth / 2, hintY, 0xFF888888, false);
@@ -259,5 +311,39 @@ public class HappyGhastScreen extends Screen {
     @Override
     public boolean shouldPause() {
         return false;
+    }
+    
+    private void openConfigScreen() {
+        if (this.client != null) {
+            this.client.setScreen(new HappyGhastConfigScreen(this));
+        }
+    }
+    
+    @Override
+    public void close() {
+        trySendRename();
+        super.close();
+    }
+    
+    @Override
+    public boolean keyPressed(KeyInput keyInput) {
+        int keyCode = keyInput.key();
+        if (keyCode == GLFW.GLFW_KEY_ENTER || keyCode == GLFW.GLFW_KEY_KP_ENTER) {
+            trySendRename();
+            return true;
+        }
+        return super.keyPressed(keyInput);
+    }
+    
+    private void trySendRename() {
+        if (this.nameField == null) return;
+        String newName = this.nameField.getText();
+        if (newName == null) return;
+        newName = newName.trim();
+        if (newName.isEmpty() || newName.equals(this.customName)) {
+            return;
+        }
+        ClientPlayNetworking.send(new RenameGhastPayload(this.entityId, newName));
+        this.customName = newName;
     }
 }

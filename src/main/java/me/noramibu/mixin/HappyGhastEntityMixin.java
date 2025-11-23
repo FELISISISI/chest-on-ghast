@@ -1,34 +1,55 @@
 package me.noramibu.mixin;
 
+import me.noramibu.Chestonghast;
 import me.noramibu.accessor.HappyGhastDataAccessor;
+import me.noramibu.combat.GhastCombatHelper;
+import me.noramibu.combat.GhastCombatStats;
 import me.noramibu.data.HappyGhastData;
+import me.noramibu.config.GhastConfig;
+import me.noramibu.element.GhastElement;
 import me.noramibu.level.LevelConfig;
 import me.noramibu.network.SyncGhastDataPayload;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.component.DataComponentTypes;
+import net.minecraft.entity.EquipmentSlot;
 import net.minecraft.entity.EntityType;
 import net.minecraft.entity.attribute.EntityAttributes;
+import net.minecraft.entity.damage.DamageSource;
+import me.noramibu.entity.HappyGhastFireballEntity;
+import me.noramibu.entity.HappyGhastIceShardEntity;
+import me.noramibu.entity.HappyGhastSandBoltEntity;
+import me.noramibu.entity.HappyGhastWindProjectileEntity;
+import net.minecraft.entity.mob.MobEntity;
+import net.minecraft.entity.mob.Monster;
 import net.minecraft.entity.passive.HappyGhastEntity;
 import net.minecraft.entity.player.PlayerEntity;
 import net.minecraft.entity.vehicle.ChestMinecartEntity;
 import net.minecraft.item.ItemStack;
 import net.minecraft.item.Items;
 import net.minecraft.nbt.NbtCompound;
+import net.minecraft.registry.Registries;
+import net.minecraft.registry.entry.RegistryEntry;
+import net.minecraft.registry.tag.BiomeTags;
 import net.minecraft.scoreboard.Scoreboard;
 import net.minecraft.scoreboard.Team;
 import net.minecraft.server.network.ServerPlayerEntity;
 import net.minecraft.server.world.ServerWorld;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.ActionResult;
 import net.minecraft.util.Hand;
-import net.minecraft.registry.Registries;
+import net.minecraft.util.math.BlockPos;
 import org.spongepowered.asm.mixin.Mixin;
 import org.spongepowered.asm.mixin.Unique;
 import org.spongepowered.asm.mixin.injection.At;
 import org.spongepowered.asm.mixin.injection.Inject;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
-import net.minecraft.entity.EquipmentSlot;
+
+import java.util.EnumMap;
+import java.util.List;
+import java.util.Locale;
+import net.minecraft.util.math.Vec3d;
 
 /**
  * Mixin for HappyGhastEntity
@@ -44,6 +65,34 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
     // 用于跟踪tick计数，控制饱食度更新频率
     @Unique
     private int tickCounter = 0;
+    
+    // 记录当前是否处于战斗状态，避免重复进入/退出
+    @Unique
+    private boolean inCombat = false;
+    
+    // 战斗逻辑使用的冷却计时器（tick）
+    @Unique
+    private int fireballCooldownTicks = 0;
+    
+    // 当前守护的玩家引用，用于日志和状态判断
+    @Unique
+    private PlayerEntity guardianPlayer;
+    
+    // 当前锁定的敌对生物
+    @Unique
+    private MobEntity currentTarget;
+    
+    // 标记是否已为该实体分配属性
+    @Unique
+    private boolean elementAssigned = false;
+    
+    // 玩家感知范围 - 识别需要保护的玩家
+    @Unique
+    private static final double PLAYER_ALERT_RADIUS = 16.0;
+    
+    // 敌对生物探测半径 - 判断是否需要进入战斗（满足“方圆40格”需求）
+    @Unique
+    private static final double HOSTILE_DETECTION_RADIUS = 40.0;
     
     // 这个构造函数仅为了满足编译，永远不会被调用
     protected HappyGhastEntityMixin(net.minecraft.entity.EntityType<? extends net.minecraft.entity.mob.MobEntity> entityType, net.minecraft.world.World world) {
@@ -81,6 +130,11 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
         // 添加跟随手持食物的玩家的AI
         HappyGhastEntity ghast = (HappyGhastEntity) (Object) this;
         this.goalSelector.add(3, new FollowPlayerWithFoodGoal(ghast, 1.0, 6.0f, 3.0f));
+        
+        if (!ghast.getEntityWorld().isClient()) {
+            ensureDefaultName(ghast);
+            ensureElementAssigned(ghast);
+        }
     }
     
     /**
@@ -228,6 +282,15 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
             
             // 确保血量上限正确
             updateMaxHealth(ghast);
+            
+            // 确保默认名称和名称标签同步
+            ensureDefaultName(ghast);
+            
+            // 确保属性分配
+            ensureElementAssigned(ghast);
+            
+            // 处理自动战斗逻辑，保护附近玩家
+            handleCombatBehavior(ghast);
         }
     }
     
@@ -252,6 +315,7 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 if (player instanceof ServerPlayerEntity serverPlayer) {
                     // 读取快乐恶魂的数据
                     HappyGhastData data = this.getGhastData();
+                    GhastCombatStats combatStats = GhastCombatHelper.compute(ghast, data);
                     
                     // 直接发送数据到客户端并打开GUI
                     // 使用SyncGhastDataPayload（已正确注册为S2C）
@@ -266,7 +330,13 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                         data.getExpToNextLevel(),
                         serverPlayer.isCreative(),  // 玩家创造模式状态
                         data.getFavoriteFoods(),     // 最喜欢的食物列表
-                        data.getCustomName() != null ? data.getCustomName() : ""  // 自定义名字
+                        data.getCustomName() != null ? data.getCustomName() : "",  // 自定义名字
+                        data.getElement().getId(),
+                        combatStats.damage(),
+                        combatStats.cooldownTicks(),
+                        combatStats.controlStrength(),
+                        combatStats.explosionPower(),
+                        combatStats.homeBoost()
                     );
                     
                     ServerPlayNetworking.send(serverPlayer, syncPayload);
@@ -411,6 +481,308 @@ public abstract class HappyGhastEntityMixin extends net.minecraft.entity.mob.Mob
                 cir.setReturnValue(ActionResult.SUCCESS);
             }
         }
+    }
+    
+    /**
+     * 负责检测玩家与敌对生物、驱动战斗状态以及发射火球
+     */
+    @Unique
+    private void handleCombatBehavior(HappyGhastEntity ghast) {
+        if (this.ghastData == null) {
+            return;
+        }
+        
+        if (this.fireballCooldownTicks > 0) {
+            this.fireballCooldownTicks--;
+        }
+        
+        // 寻找需要保护的玩家
+        PlayerEntity nearbyPlayer = ghast.getEntityWorld().getClosestPlayer(ghast, PLAYER_ALERT_RADIUS);
+        if (nearbyPlayer == null || nearbyPlayer.isSpectator()) {
+            resetCombatState(ghast);
+            return;
+        }
+        
+        // 确认玩家附近是否存在敌对生物
+        MobEntity hostileTarget = findNearestHostileAroundPlayer(nearbyPlayer, HOSTILE_DETECTION_RADIUS);
+        if (hostileTarget == null) {
+            resetCombatState(ghast);
+            return;
+        }
+        
+        // 更新战斗状态
+        if (!this.inCombat || this.guardianPlayer != nearbyPlayer) {
+            this.inCombat = true;
+            this.guardianPlayer = nearbyPlayer;
+            Chestonghast.LOGGER.debug("快乐恶魂 {} 进入战斗状态，保护玩家 {}", ghast.getUuidAsString(), nearbyPlayer.getName().getString());
+        }
+        
+        this.currentTarget = hostileTarget;
+        ghast.setAttacking(true);
+        ghast.getLookControl().lookAt(hostileTarget, 30.0f, ghast.getMaxLookPitchChange());
+        
+        GhastCombatStats combatStats = GhastCombatHelper.compute(ghast, this.ghastData);
+        if (this.fireballCooldownTicks <= 0) {
+            shootElementalProjectile(ghast, hostileTarget, combatStats);
+            this.fireballCooldownTicks = combatStats.cooldownTicks();
+            sendDebugCombatMessage(
+                ghast,
+                nearbyPlayer,
+                this.ghastData.getLevel(),
+                combatStats.damage(),
+                combatStats.cooldownTicks(),
+                combatStats.element()
+            );
+        }
+    }
+    
+    /**
+     * 搜索目标玩家周围最近的敌对生物
+     */
+    @Unique
+    private MobEntity findNearestHostileAroundPlayer(PlayerEntity player, double radius) {
+        List<MobEntity> hostiles = player.getEntityWorld().getEntitiesByClass(
+            MobEntity.class,
+            player.getBoundingBox().expand(radius),
+            entity -> entity != null && entity.isAlive() && !entity.isRemoved() && canGhastAttack(entity)
+        );
+        
+        MobEntity prioritized = null;
+        double prioritizedDistance = Double.MAX_VALUE;
+        MobEntity fallback = null;
+        double fallbackDistance = Double.MAX_VALUE;
+        
+        for (MobEntity hostile : hostiles) {
+            double distance = hostile.squaredDistanceTo(player);
+            if (isAggressiveTowardsPlayer(hostile, player)) {
+                if (distance < prioritizedDistance) {
+                    prioritizedDistance = distance;
+                    prioritized = hostile;
+                }
+            } else if (distance < fallbackDistance) {
+                fallbackDistance = distance;
+                fallback = hostile;
+            }
+        }
+        
+        return prioritized != null ? prioritized : fallback;
+    }
+    
+    /**
+     * 发射对应属性的投射物
+     */
+    @Unique
+    private void shootElementalProjectile(HappyGhastEntity ghast, MobEntity target, GhastCombatStats stats) {
+        double deltaX = target.getX() - ghast.getX();
+        double deltaY = target.getBodyY(0.5) - ghast.getBodyY(0.5);
+        double deltaZ = target.getZ() - ghast.getZ();
+        Vec3d direction = new Vec3d(deltaX, deltaY, deltaZ);
+        if (direction.lengthSquared() < 1.0E-4) {
+            direction = new Vec3d(0, 0, 0.1);
+        }
+        direction = direction.normalize();
+        
+        var world = ghast.getEntityWorld();
+        var element = stats.element();
+        net.minecraft.entity.Entity projectile;
+        switch (element) {
+            case FIRE -> projectile = new HappyGhastFireballEntity(world, ghast, direction, stats.explosionPower(), stats.damage());
+            case ICE -> projectile = new HappyGhastIceShardEntity(world, ghast, direction, stats.damage(), stats.controlStrength());
+            case WIND -> projectile = new HappyGhastWindProjectileEntity(world, ghast, direction, stats.damage(), stats.controlStrength());
+            case SAND -> projectile = new HappyGhastSandBoltEntity(world, ghast, direction, stats.damage(), stats.controlStrength());
+            default -> projectile = new HappyGhastFireballEntity(world, ghast, direction, stats.explosionPower(), stats.damage());
+        }
+        
+        double spawnY = ghast.getBodyY(0.5) + 0.5;
+        projectile.setPosition(ghast.getX(), spawnY, ghast.getZ());
+        world.spawnEntity(projectile);
+        playElementalSound(element, ghast);
+    }
+    
+    @Unique
+    private void playElementalSound(GhastElement element, HappyGhastEntity ghast) {
+        switch (element) {
+            case FIRE -> ghast.playSound(SoundEvents.ENTITY_GHAST_SHOOT, 1.0f, 0.8f + ghast.getRandom().nextFloat() * 0.4f);
+            case ICE -> ghast.playSound(SoundEvents.BLOCK_GLASS_BREAK, 0.8f, 1.2f);
+            case WIND -> ghast.playSound(SoundEvents.ENTITY_BREEZE_CHARGE, 1.0f, 1.0f + ghast.getRandom().nextFloat() * 0.2f);
+            case SAND -> ghast.playSound(SoundEvents.BLOCK_SAND_BREAK, 0.8f, 0.8f);
+        }
+    }
+    
+    /**
+     * 重置战斗状态，避免在没有威胁时持续攻击
+     */
+    @Unique
+    private void resetCombatState(HappyGhastEntity ghast) {
+        if (this.inCombat) {
+            Chestonghast.LOGGER.debug(
+                "快乐恶魂 {} 退出战斗状态",
+                ghast.getUuidAsString()
+            );
+        }
+        this.inCombat = false;
+        this.guardianPlayer = null;
+        this.currentTarget = null;
+        ghast.setAttacking(false);
+    }
+    
+    /**
+     * 当调试模式开启时，将战斗数据发送到聊天栏
+     */
+    @Unique
+    private void sendDebugCombatMessage(HappyGhastEntity ghast, PlayerEntity player, int level, float fireballDamage, int cooldownTicks, GhastElement element) {
+        GhastConfig config = GhastConfig.getInstance();
+        if (!config.debugMode) {
+            return;
+        }
+        
+        if (!(player instanceof ServerPlayerEntity serverPlayer)) {
+            return;
+        }
+        
+        String ghastName = ghast.getDisplayName().getString();
+        float cooldownSeconds = cooldownTicks / 20.0f;
+        String message = String.format(
+            "[调试] %s [%s] (Lv.%d) 火力 %.1f / 冷却 %.2fs",
+            ghastName,
+            element.getId().toUpperCase(Locale.ROOT),
+            level,
+            fireballDamage,
+            cooldownSeconds
+        );
+        serverPlayer.sendMessage(Text.literal(message), false);
+    }
+    
+    /**
+     * 为每一只快乐恶魂分配默认名字并同步名称标签
+     */
+    @Unique
+    private void ensureDefaultName(HappyGhastEntity ghast) {
+        if (this.ghastData == null || ghast.getEntityWorld().isClient()) {
+            return;
+        }
+        
+        String storedName = this.ghastData.getCustomName();
+        if (storedName == null || storedName.isEmpty()) {
+            int index = GhastConfig.getInstance().claimNextGhastNameIndex();
+            storedName = String.format("快乐恶魂%02d", index);
+            this.ghastData.setCustomName(storedName);
+        }
+        
+        if (storedName != null && !storedName.isEmpty()) {
+            applyNameTag(ghast, storedName);
+        }
+    }
+    
+    @Unique
+    private void applyNameTag(HappyGhastEntity ghast, String name) {
+        if (name == null || name.isEmpty()) {
+            return;
+        }
+        ghast.setCustomName(Text.literal(name));
+        ghast.setCustomNameVisible(true);
+    }
+    
+    /**
+     * 为快乐恶魂分配元素属性
+     */
+    @Unique
+    private void ensureElementAssigned(HappyGhastEntity ghast) {
+        if (this.elementAssigned || this.ghastData == null || ghast.getEntityWorld().isClient()) {
+            return;
+        }
+        
+        if (!this.ghastData.hasElementAssigned()) {
+            GhastElement selected = selectElementForGhast(ghast);
+            this.ghastData.setElement(selected);
+            Chestonghast.LOGGER.debug("快乐恶魂 {} 分配属性 {}", ghast.getUuidAsString(), selected.getId());
+        }
+        this.elementAssigned = true;
+    }
+    
+    @Unique
+    private GhastElement selectElementForGhast(HappyGhastEntity ghast) {
+        if (!(ghast.getEntityWorld() instanceof ServerWorld serverWorld)) {
+            return GhastElement.FIRE;
+        }
+        
+        RegistryEntry<net.minecraft.world.biome.Biome> biomeEntry = serverWorld.getBiome(BlockPos.ofFloored(ghast.getX(), ghast.getY(), ghast.getZ()));
+        EnumMap<GhastElement, Float> weights = new EnumMap<>(GhastElement.class);
+        for (GhastElement element : GhastElement.values()) {
+            weights.put(element, 1.0f);
+        }
+        
+        if (biomeEntry.isIn(BiomeTags.IS_FOREST) || biomeEntry.isIn(BiomeTags.IS_SAVANNA) || biomeEntry.isIn(BiomeTags.IS_JUNGLE)) {
+            weights.merge(GhastElement.FIRE, 4.0f, Float::sum);
+        }
+        if (biomeEntry.isIn(BiomeTags.IS_TAIGA)) {
+            weights.merge(GhastElement.ICE, 4.5f, Float::sum);
+        }
+        if (biomeEntry.isIn(BiomeTags.IS_MOUNTAIN) || biomeEntry.isIn(BiomeTags.IS_HILL)) {
+            weights.merge(GhastElement.WIND, 5.0f, Float::sum);
+        }
+        if (biomeEntry.isIn(BiomeTags.IS_BADLANDS)) {
+            weights.merge(GhastElement.SAND, 5.0f, Float::sum);
+        }
+        
+        float temperature = biomeEntry.value().getTemperature();
+        if (temperature <= 0.15f) {
+            weights.merge(GhastElement.ICE, 4.0f, Float::sum);
+        }
+        if (temperature >= 1.2f) {
+            weights.merge(GhastElement.SAND, 4.0f, Float::sum);
+            weights.merge(GhastElement.FIRE, 2.0f, Float::sum);
+        }
+        if (temperature >= 0.7f && temperature <= 1.0f) {
+            weights.merge(GhastElement.WIND, 1.5f, Float::sum);
+        }
+        
+        return pickElementByWeight(ghast, weights);
+    }
+    
+    @Unique
+    private GhastElement pickElementByWeight(HappyGhastEntity ghast, EnumMap<GhastElement, Float> weights) {
+        float total = 0.0f;
+        for (float value : weights.values()) {
+            total += value;
+        }
+        if (total <= 0.0f) {
+            return GhastElement.FIRE;
+        }
+        
+        float roll = ghast.getRandom().nextFloat() * total;
+        for (var entry : weights.entrySet()) {
+            roll -= entry.getValue();
+            if (roll <= 0.0f) {
+                return entry.getKey();
+            }
+        }
+        return GhastElement.FIRE;
+    }
+    
+    /**
+     * 判断敌对生物是否为合法攻击目标（史莱姆等友好对象会被排除）
+     */
+    @Unique
+    private boolean canGhastAttack(MobEntity entity) {
+        return entity instanceof Monster && entity.getType() != EntityType.SLIME;
+    }
+    
+    /**
+     * 判断敌对生物是否正在或刚刚伤害玩家，用于优先级排序
+     */
+    @Unique
+    private boolean isAggressiveTowardsPlayer(MobEntity hostile, PlayerEntity player) {
+        if (hostile.getTarget() == player) {
+            return true;
+        }
+        
+        DamageSource recentDamage = player.getRecentDamageSource();
+        if (recentDamage != null && recentDamage.getAttacker() == hostile) {
+            return true;
+        }
+        
+        return player.getAttacker() == hostile;
     }
     
     

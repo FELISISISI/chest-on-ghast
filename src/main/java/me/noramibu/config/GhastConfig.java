@@ -3,6 +3,7 @@ package me.noramibu.config;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import me.noramibu.Chestonghast;
+import me.noramibu.element.GhastElement;
 import net.fabricmc.loader.api.FabricLoader;
 
 import java.io.File;
@@ -31,6 +32,15 @@ public class GhastConfig {
     // 喂食配置
     public FoodConfig foodConfig = new FoodConfig();
     
+    // 调试模式，用于输出战斗细节
+    public boolean debugMode = false;
+    
+    // 用于生成默认快乐恶魂名字的全局计数器
+    public int nextGhastNameIndex = 1;
+    
+    // 属性配置
+    public Map<String, ElementConfig> elementConfigs = new HashMap<>();
+    
     /**
      * 等级配置类
      */
@@ -39,14 +49,21 @@ public class GhastConfig {
         public float maxHunger;          // 最大饱食度
         public int expToNextLevel;       // 升级所需经验
         public float hungerDecayMultiplier; // 饱食度消耗倍率（每级递减10%）
+        public int fireballPower = 1;    // 火球爆炸威力
+        public int attackCooldownTicks = 60; // 攻击冷却（ticks）
+        public float fireballDamage = 6.0f;  // 火球直接伤害
         
         public LevelConfig() {}
         
-        public LevelConfig(float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayMultiplier) {
+        public LevelConfig(float maxHealth, float maxHunger, int expToNextLevel, float hungerDecayMultiplier,
+                           int fireballPower, int attackCooldownTicks, float fireballDamage) {
             this.maxHealth = maxHealth;
             this.maxHunger = maxHunger;
             this.expToNextLevel = expToNextLevel;
             this.hungerDecayMultiplier = hungerDecayMultiplier;
+            this.fireballPower = fireballPower;
+            this.attackCooldownTicks = attackCooldownTicks;
+            this.fireballDamage = fireballDamage;
         }
     }
     
@@ -60,6 +77,22 @@ public class GhastConfig {
         public int favoriteExp = 20;              // 最喜欢食物给予经验（等级1基准）
         public float defaultHunger = 12.0f;       // 默认食物恢复饱食度
         public int defaultExp = 5;                // 默认食物给予经验（等级1基准）
+    }
+    
+    /**
+     * 属性配置
+     */
+    public static class ElementConfig {
+        public String id;
+        public float sameBiomeDamageBonus = 0.15f;
+        public float sameBiomeEffectBonus = 0.15f;
+        public Map<Integer, ElementLevelConfig> levels = new HashMap<>();
+    }
+    
+    public static class ElementLevelConfig {
+        public float damageMultiplier = 1.0f;
+        public float cooldownMultiplier = 1.0f;
+        public float controlStrength = 1.0f;
     }
     
     /**
@@ -80,6 +113,8 @@ public class GhastConfig {
             try (FileReader reader = new FileReader(CONFIG_FILE)) {
                 GhastConfig config = GSON.fromJson(reader, GhastConfig.class);
                 if (config != null && config.levels != null && !config.levels.isEmpty()) {
+                    config.ensureCombatDefaults();
+                    config.save();
                     Chestonghast.LOGGER.info("已从配置文件加载快乐恶魂配置：{}", CONFIG_FILE.getAbsolutePath());
                     return config;
                 }
@@ -92,7 +127,143 @@ public class GhastConfig {
         Chestonghast.LOGGER.info("创建默认快乐恶魂配置文件：{}", CONFIG_FILE.getAbsolutePath());
         GhastConfig config = createDefault();
         config.save();
+        config.ensureElementConfigs();
         return config;
+    }
+    
+    /**
+     * 为旧版本配置补全战斗相关字段，避免缺省值导致战斗失衡
+     */
+    private void ensureCombatDefaults() {
+        GhastConfig defaults = createDefault();
+        
+        for (int level = 1; level <= 6; level++) {
+            LevelConfig defaultConfig = defaults.levels.get(level);
+            LevelConfig current = this.levels.computeIfAbsent(level, lvl -> new LevelConfig());
+            
+            if (current.maxHealth == 0) current.maxHealth = defaultConfig.maxHealth;
+            if (current.maxHunger == 0) current.maxHunger = defaultConfig.maxHunger;
+            if (current.expToNextLevel == 0 && level != 6) current.expToNextLevel = defaultConfig.expToNextLevel;
+            if (current.hungerDecayMultiplier == 0) current.hungerDecayMultiplier = defaultConfig.hungerDecayMultiplier;
+            if (current.fireballPower <= 0) current.fireballPower = defaultConfig.fireballPower;
+            if (current.attackCooldownTicks <= 0) current.attackCooldownTicks = defaultConfig.attackCooldownTicks;
+            if (current.fireballDamage <= 0) current.fireballDamage = defaultConfig.fireballDamage;
+        }
+        
+        if (this.nextGhastNameIndex < 1) {
+            this.nextGhastNameIndex = 1;
+        }
+        
+        ensureElementConfigs();
+    }
+    
+    private void ensureElementConfigs() {
+        if (this.elementConfigs == null) {
+            this.elementConfigs = new HashMap<>();
+        }
+        
+        for (GhastElement element : GhastElement.values()) {
+            ElementConfig config = this.elementConfigs.computeIfAbsent(element.getId(), id -> createDefaultElementConfig(element));
+            if (config.levels == null) {
+                config.levels = new HashMap<>();
+            }
+            
+            Map<Integer, ElementLevelConfig> defaults = createDefaultElementLevels(element);
+            for (int level = 1; level <= me.noramibu.level.LevelConfig.MAX_LEVEL; level++) {
+                ElementLevelConfig defaultLevel = defaults.get(level);
+                if (defaultLevel == null) continue;
+                config.levels.computeIfAbsent(level, lvl -> copyElementLevelConfig(defaultLevel));
+            }
+        }
+    }
+    
+    /**
+     * 申请下一个快乐恶魂编号，用于生成“快乐恶魂XX”名称
+     */
+    public synchronized int claimNextGhastNameIndex() {
+        int currentIndex = this.nextGhastNameIndex;
+        this.nextGhastNameIndex = Math.max(currentIndex + 1, 1);
+        this.save();
+        return currentIndex;
+    }
+    
+    private ElementConfig createDefaultElementConfig(GhastElement element) {
+        ElementConfig config = new ElementConfig();
+        config.id = element.getId();
+        switch (element) {
+            case FIRE -> {
+                config.sameBiomeDamageBonus = 0.25f;
+                config.sameBiomeEffectBonus = 0.10f;
+            }
+            case ICE -> {
+                config.sameBiomeDamageBonus = 0.15f;
+                config.sameBiomeEffectBonus = 0.30f;
+            }
+            case WIND -> {
+                config.sameBiomeDamageBonus = 0.10f;
+                config.sameBiomeEffectBonus = 0.25f;
+            }
+            case SAND -> {
+                config.sameBiomeDamageBonus = 0.12f;
+                config.sameBiomeEffectBonus = 0.20f;
+            }
+        }
+        config.levels = createDefaultElementLevels(element);
+        return config;
+    }
+    
+    private Map<Integer, ElementLevelConfig> createDefaultElementLevels(GhastElement element) {
+        Map<Integer, ElementLevelConfig> map = new HashMap<>();
+        
+        float[] damage;
+        float[] cooldown;
+        float[] control;
+        
+        switch (element) {
+            case FIRE -> {
+                damage = new float[]{1.00f, 1.10f, 1.25f, 1.40f, 1.60f, 1.80f};
+                cooldown = new float[]{1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.75f};
+                control = new float[]{1.00f, 1.05f, 1.10f, 1.15f, 1.20f, 1.25f};
+            }
+            case ICE -> {
+                damage = new float[]{0.85f, 0.95f, 1.05f, 1.15f, 1.30f, 1.45f};
+                cooldown = new float[]{1.05f, 1.00f, 0.95f, 0.90f, 0.85f, 0.80f};
+                control = new float[]{1.30f, 1.40f, 1.55f, 1.70f, 1.90f, 2.10f};
+            }
+            case WIND -> {
+                damage = new float[]{0.90f, 1.00f, 1.10f, 1.20f, 1.35f, 1.50f};
+                cooldown = new float[]{0.95f, 0.90f, 0.85f, 0.80f, 0.75f, 0.65f};
+                control = new float[]{1.40f, 1.55f, 1.70f, 1.90f, 2.10f, 2.35f};
+            }
+            case SAND -> {
+                damage = new float[]{0.88f, 0.98f, 1.12f, 1.26f, 1.42f, 1.60f};
+                cooldown = new float[]{1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.75f};
+                control = new float[]{1.20f, 1.35f, 1.55f, 1.75f, 1.95f, 2.20f};
+            }
+            default -> {
+                damage = new float[]{1.00f, 1.10f, 1.25f, 1.40f, 1.60f, 1.80f};
+                cooldown = new float[]{1.00f, 0.95f, 0.90f, 0.85f, 0.80f, 0.75f};
+                control = new float[]{1.00f, 1.05f, 1.10f, 1.15f, 1.20f, 1.25f};
+            }
+        }
+        
+        for (int i = 0; i < damage.length; i++) {
+            ElementLevelConfig levelConfig = new ElementLevelConfig();
+            levelConfig.damageMultiplier = damage[i];
+            levelConfig.cooldownMultiplier = cooldown[i];
+            levelConfig.controlStrength = control[i];
+            map.put(i + 1, levelConfig);
+        }
+        
+        return map;
+    }
+    
+    private ElementLevelConfig copyElementLevelConfig(ElementLevelConfig source) {
+        ElementLevelConfig copy = new ElementLevelConfig();
+        copy.damageMultiplier = source.damageMultiplier;
+        copy.cooldownMultiplier = source.cooldownMultiplier;
+        copy.controlStrength = source.controlStrength;
+        return copy;
     }
     
     /**
@@ -100,17 +271,18 @@ public class GhastConfig {
      */
     private static GhastConfig createDefault() {
         GhastConfig config = new GhastConfig();
+        config.nextGhastNameIndex = 1;
         
         // MC一昼夜 = 1200秒
         float mcDaySeconds = 1200.0f;
         
         // 配置6个等级，每级饱食度翻倍，消耗速率递减10%
-        config.levels.put(1, new LevelConfig(20.0f, 100.0f, 100, 1.0f));           // 等级1：100%速率
-        config.levels.put(2, new LevelConfig(30.0f, 200.0f, 200, 0.9f));           // 等级2：90%速率
-        config.levels.put(3, new LevelConfig(45.0f, 400.0f, 350, 0.81f));          // 等级3：81%速率
-        config.levels.put(4, new LevelConfig(65.0f, 800.0f, 550, 0.729f));         // 等级4：72.9%速率
-        config.levels.put(5, new LevelConfig(90.0f, 1600.0f, 800, 0.6561f));       // 等级5：65.61%速率
-        config.levels.put(6, new LevelConfig(120.0f, 3200.0f, 0, 0.59049f));       // 等级6：59.05%速率
+        config.levels.put(1, new LevelConfig(20.0f, 100.0f, 100, 1.0f, 1, 60, 6.0f));   // 入门：慢速低伤
+        config.levels.put(2, new LevelConfig(30.0f, 200.0f, 200, 0.9f, 2, 48, 8.0f));   // 稍快并提高爆炸
+        config.levels.put(3, new LevelConfig(45.0f, 400.0f, 350, 0.81f, 3, 36, 11.0f)); // 中级：明显提速
+        config.levels.put(4, new LevelConfig(65.0f, 800.0f, 550, 0.729f, 4, 26, 15.0f));// 高级：半自动火力
+        config.levels.put(5, new LevelConfig(90.0f, 1600.0f, 800, 0.6561f, 5, 18, 20.0f));// 终盘前：高爆高伤
+        config.levels.put(6, new LevelConfig(120.0f, 3200.0f, 0, 0.59049f, 6, 10, 26.0f));// 满级：压制火力
         
         return config;
     }
@@ -137,6 +309,24 @@ public class GhastConfig {
         if (level < 1) level = 1;
         if (level > 6) level = 6;
         return levels.getOrDefault(level, levels.get(1));
+    }
+    
+    public ElementConfig getElementConfig(GhastElement element) {
+        ensureElementConfigs();
+        return elementConfigs.getOrDefault(element.getId(), createDefaultElementConfig(element));
+    }
+    
+    public ElementLevelConfig getElementLevelConfig(GhastElement element, int level) {
+        ensureElementConfigs();
+        ElementConfig config = getElementConfig(element);
+        ElementLevelConfig levelConfig = config.levels.get(level);
+        if (levelConfig == null) {
+            Map<Integer, ElementLevelConfig> defaults = createDefaultElementLevels(element);
+            levelConfig = defaults.getOrDefault(level, defaults.get(1));
+            levelConfig = copyElementLevelConfig(levelConfig);
+            config.levels.put(level, levelConfig);
+        }
+        return levelConfig;
     }
     
     /**

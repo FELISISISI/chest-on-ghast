@@ -1,12 +1,19 @@
 package me.noramibu;
 
 import me.noramibu.accessor.HappyGhastDataAccessor;
+import me.noramibu.combat.GhastCombatHelper;
+import me.noramibu.combat.GhastCombatStats;
+import me.noramibu.config.GhastConfig;
 import me.noramibu.data.HappyGhastData;
+import me.noramibu.element.GhastElement;
 import me.noramibu.network.GreetGhastPayload;
 import me.noramibu.network.OpenGhastGuiPayload;
 import me.noramibu.network.RenameGhastPayload;
+import me.noramibu.network.RequestGhastConfigPayload;
 import me.noramibu.network.RequestGhastDataPayload;
+import me.noramibu.network.SyncGhastConfigPayload;
 import me.noramibu.network.SyncGhastDataPayload;
+import me.noramibu.network.UpdateGhastConfigPayload;
 import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.fabricmc.fabric.api.networking.v1.ServerPlayNetworking;
 import net.minecraft.entity.Entity;
@@ -17,6 +24,9 @@ import net.minecraft.util.hit.EntityHitResult;
 import net.minecraft.util.hit.HitResult;
 import net.minecraft.util.math.Vec3d;
 import net.minecraft.world.World;
+
+import java.util.ArrayList;
+import java.util.List;
 
 /**
  * 网络包处理器
@@ -56,6 +66,18 @@ public class NetworkHandler {
         PayloadTypeRegistry.playS2C().register(
             SyncGhastDataPayload.ID,
             SyncGhastDataPayload.CODEC
+        );
+        PayloadTypeRegistry.playC2S().register(
+            RequestGhastConfigPayload.ID,
+            RequestGhastConfigPayload.CODEC
+        );
+        PayloadTypeRegistry.playC2S().register(
+            UpdateGhastConfigPayload.ID,
+            UpdateGhastConfigPayload.CODEC
+        );
+        PayloadTypeRegistry.playS2C().register(
+            SyncGhastConfigPayload.ID,
+            SyncGhastConfigPayload.CODEC
         );
         
         // 注册问候快乐恶魂的处理器
@@ -102,6 +124,7 @@ public class NetworkHandler {
                         HappyGhastData data = getOrCreateGhastData(ghast);
                         
                         // 发送数据到客户端并打开GUI
+                        GhastCombatStats stats = GhastCombatHelper.compute(ghast, data);
                         SyncGhastDataPayload syncPayload = new SyncGhastDataPayload(
                             ghast.getId(),
                             data.getLevel(),
@@ -113,7 +136,13 @@ public class NetworkHandler {
                             data.getExpToNextLevel(),
                             player.isCreative(),  // 玩家创造模式状态
                             data.getFavoriteFoods(),  // 最喜欢的食物列表
-                            data.getCustomName() != null ? data.getCustomName() : ""  // 自定义名字
+                            data.getCustomName() != null ? data.getCustomName() : "",  // 自定义名字
+                            data.getElement().getId(),
+                            stats.damage(),
+                            stats.cooldownTicks(),
+                            stats.controlStrength(),
+                            stats.explosionPower(),
+                            stats.homeBoost()
                         );
                         
                         ServerPlayNetworking.send(player, syncPayload);
@@ -138,6 +167,7 @@ public class NetworkHandler {
                         HappyGhastData data = getOrCreateGhastData(ghast);
                         
                         // 发送最新数据到客户端
+                        GhastCombatStats stats = GhastCombatHelper.compute(ghast, data);
                         SyncGhastDataPayload syncPayload = new SyncGhastDataPayload(
                             ghast.getId(),
                             data.getLevel(),
@@ -149,7 +179,13 @@ public class NetworkHandler {
                             data.getExpToNextLevel(),
                             player.isCreative(),
                             data.getFavoriteFoods(),
-                            data.getCustomName() != null ? data.getCustomName() : ""
+                            data.getCustomName() != null ? data.getCustomName() : "",
+                            data.getElement().getId(),
+                            stats.damage(),
+                            stats.cooldownTicks(),
+                            stats.controlStrength(),
+                            stats.explosionPower(),
+                            stats.homeBoost()
                         );
                         
                         ServerPlayNetworking.send(player, syncPayload);
@@ -190,6 +226,16 @@ public class NetworkHandler {
                 });
             }
         );
+
+        ServerPlayNetworking.registerGlobalReceiver(
+            RequestGhastConfigPayload.ID,
+            (payload, context) -> context.server().execute(() -> sendConfigSnapshot(context.player()))
+        );
+
+        ServerPlayNetworking.registerGlobalReceiver(
+            UpdateGhastConfigPayload.ID,
+            (payload, context) -> context.server().execute(() -> handleConfigUpdate(context.player(), payload))
+        );
     }
 
     /**
@@ -227,6 +273,81 @@ public class NetworkHandler {
         }
         
         return null;
+    }
+
+    private static void handleConfigUpdate(ServerPlayerEntity player, UpdateGhastConfigPayload payload) {
+        if (player == null) {
+            return;
+        }
+        if (!player.hasPermissionLevel(2) && !player.isCreative()) {
+            player.sendMessage(Text.literal("需要管理员或创造模式权限才能修改配置"), false);
+            return;
+        }
+
+        GhastConfig config = GhastConfig.getInstance();
+        for (SyncGhastConfigPayload.LevelEntry entry : payload.levels()) {
+            GhastConfig.LevelConfig levelConfig = config.levels.get(entry.level());
+            if (levelConfig == null) continue;
+            levelConfig.fireballPower = clampInt(entry.fireballPower(), 1, 20);
+            levelConfig.attackCooldownTicks = clampInt(entry.attackCooldownTicks(), 1, 200);
+            levelConfig.fireballDamage = clampFloat(entry.fireballDamage(), 1.0f, 100.0f);
+        }
+
+        for (SyncGhastConfigPayload.ElementEntry entry : payload.elements()) {
+            GhastConfig.ElementConfig elementConfig = config.elementConfigs.computeIfAbsent(entry.id(), id -> {
+                GhastConfig.ElementConfig ec = new GhastConfig.ElementConfig();
+                ec.id = id;
+                return ec;
+            });
+            elementConfig.sameBiomeDamageBonus = clampFloat(entry.sameBiomeDamageBonus(), 0.0f, 5.0f);
+            elementConfig.sameBiomeEffectBonus = clampFloat(entry.sameBiomeEffectBonus(), 0.0f, 5.0f);
+        }
+
+        config.debugMode = payload.debugMode();
+        config.save();
+        player.sendMessage(Text.literal("快乐恶魂配置已更新"), false);
+        sendConfigSnapshot(player);
+    }
+
+    private static void sendConfigSnapshot(ServerPlayerEntity player) {
+        if (player == null) return;
+        SyncGhastConfigPayload snapshot = createConfigSnapshot();
+        ServerPlayNetworking.send(player, snapshot);
+    }
+
+    private static SyncGhastConfigPayload createConfigSnapshot() {
+        GhastConfig config = GhastConfig.getInstance();
+        List<SyncGhastConfigPayload.LevelEntry> levelEntries = new ArrayList<>();
+        for (int level = 1; level <= 6; level++) {
+            GhastConfig.LevelConfig levelConfig = config.levels.get(level);
+            if (levelConfig == null) continue;
+            levelEntries.add(new SyncGhastConfigPayload.LevelEntry(
+                level,
+                levelConfig.fireballPower,
+                levelConfig.attackCooldownTicks,
+                levelConfig.fireballDamage
+            ));
+        }
+
+        List<SyncGhastConfigPayload.ElementEntry> elementEntries = new ArrayList<>();
+        for (GhastElement element : GhastElement.values()) {
+            GhastConfig.ElementConfig elementConfig = config.getElementConfig(element);
+            elementEntries.add(new SyncGhastConfigPayload.ElementEntry(
+                element.getId(),
+                elementConfig.sameBiomeDamageBonus,
+                elementConfig.sameBiomeEffectBonus
+            ));
+        }
+
+        return new SyncGhastConfigPayload(levelEntries, elementEntries, config.debugMode);
+    }
+
+    private static int clampInt(int value, int min, int max) {
+        return Math.max(min, Math.min(max, value));
+    }
+
+    private static float clampFloat(float value, float min, float max) {
+        return Math.max(min, Math.min(max, value));
     }
     
     /**

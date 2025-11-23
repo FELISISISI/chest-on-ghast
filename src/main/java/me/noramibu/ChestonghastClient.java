@@ -1,14 +1,24 @@
 package me.noramibu;
 
+import me.noramibu.gui.HappyGhastConfigScreen;
 import me.noramibu.gui.HappyGhastScreen;
 import me.noramibu.network.GreetGhastPayload;
+import me.noramibu.network.RequestGhastConfigPayload;
+import me.noramibu.network.SyncGhastConfigPayload;
 import me.noramibu.network.SyncGhastDataPayload;
+import me.noramibu.network.UpdateGhastConfigPayload;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.fabricmc.fabric.api.client.networking.v1.ClientPlayNetworking;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.Screens;
+import net.fabricmc.fabric.api.networking.v1.PayloadTypeRegistry;
 import net.minecraft.client.MinecraftClient;
+import net.minecraft.client.gui.screen.option.OptionsScreen;
+import net.minecraft.client.gui.widget.ButtonWidget;
 import net.minecraft.client.option.KeyBinding;
+import net.minecraft.text.Text;
 import net.minecraft.client.util.InputUtil;
 import org.lwjgl.glfw.GLFW;
 
@@ -64,6 +74,19 @@ public class ChestonghastClient implements ClientModInitializer {
                     }
                 });
             }
+        );
+        
+        ScreenEvents.AFTER_INIT.register((client, screen, scaledWidth, scaledHeight) -> {
+            if (screen instanceof OptionsScreen options) {
+                Screens.getButtons(options).add(ButtonWidget.builder(Text.literal("快乐恶魂配置"), btn -> {
+                    client.setScreen(new HappyGhastConfigScreen(screen));
+                }).dimensions(options.width / 2 - 102, options.height / 6 + 180, 204, 20).build());
+            }
+        });
+        
+        ClientPlayNetworking.registerGlobalReceiver(
+            SyncGhastConfigPayload.ID,
+            (payload, context) -> context.client().execute(() -> HappyGhastConfigScreen.handleServerPayload(payload))
         );
     }
 }

@@ -1,5 +1,6 @@
 package me.noramibu;
 
+import me.noramibu.command.HappyGhastDebugCommands;
 import me.noramibu.config.GhastConfig;
 import net.fabricmc.api.ModInitializer;
 import org.slf4j.Logger;
@@ -28,6 +29,9 @@ public class Chestonghast implements ModInitializer {
 		// 注册服务端网络包接收器
 		// 用于处理客户端发送的按键事件
 		NetworkHandler.registerServerReceivers();
+
+		// 注册调试命令，方便快速生成测试所需的实体与战斗场景
+		HappyGhastDebugCommands.register();
 		
 		LOGGER.info("Chest on Ghast mod initialized!");
 	}
